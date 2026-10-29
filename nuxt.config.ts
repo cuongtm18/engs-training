@@ -5,9 +5,10 @@ export default defineNuxtConfig({
   devtools: { enabled: false },
 
   // `nuxt build` dùng thư mục riêng để không dính file của `nuxt dev` (.nuxt).
-  $production: { buildDir: '.nuxt-build' },
+  buildDir: process.argv.includes('build') ? '.nuxt-build' : '.nuxt',
 
   app: {
+    pageTransition: { name: 'page', mode: 'out-in' },
     head: {
       title: 'English Reflex',
       htmlAttrs: { lang: 'en' },

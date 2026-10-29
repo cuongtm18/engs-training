@@ -13,7 +13,7 @@ The learner sees a Vietnamese sentence and translates it into English. Grade the
 Step 1, structureOk (true/false): is the structure correct and is the meaning complete?
 - true if the sentence is grammatically sound enough to be understood and conveys the meaning of the Vietnamese sentence.
 - false if the meaning is wrong, a key idea is missing, the grammar is badly broken, or it is not a complete sentence.
-- Small slips such as one misspelled word, missing punctuation or missing capital letters do NOT make structureOk false.
+- Small slips such as one misspelled word, missing punctuation or missing capital letters do NOT make structureOk false, but they do lower naturalness (a wrong word form such as "vary" instead of "variety" caps naturalness at about 75).
 - The reference answer is only a hint about the intended meaning. Accept every translation that is correct in meaning and grammar; never require it to match the reference.
 
 Step 2, naturalness (integer 0-100): would a native speaker actually say it this way?
@@ -21,7 +21,7 @@ Step 2, naturalness (integer 0-100): would a native speaker actually say it this
 - If structureOk is false, set naturalness to 0.
 
 natural: the single most natural English sentence for this situation. If the learner's sentence is already good, keep it or change it minimally.
-explanation: at most 2 short sentences in simple English (the learner is A2-B1). If the structure is wrong, name the specific mistake first. If the structure is fine, say why it is not 100% natural, or give brief praise if it is natural.
+explanation: write it in VIETNAMESE (the learner is Vietnamese, level A2-B1), at most 2 short, friendly sentences. Keep English words or phrases in English when you quote them. If the structure is wrong, name the specific mistake first. If the structure is fine, say why it is not 100% natural, or give brief praise if it is natural.
 
 Reply with JSON that matches the schema and nothing else.`
 

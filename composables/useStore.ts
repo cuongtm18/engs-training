@@ -11,6 +11,8 @@ interface Persisted {
   cache: Record<string, CheckResult>
   custom: Sentence[]
   topics: Topic[]
+  topicOverrides: Record<string, Partial<Pick<Topic, 'label' | 'emoji' | 'color'>>>
+  hiddenTopics: string[]
 }
 
 const defaults = (): Persisted => ({
@@ -19,6 +21,8 @@ const defaults = (): Persisted => ({
   cache: {},
   custom: [],
   topics: [],
+  topicOverrides: {},
+  hiddenTopics: [],
   settings: { accessCode: '', sessionSize: 10, dailyNew: 10 },
 })
 
@@ -39,6 +43,8 @@ function load(): Persisted {
       cache,
       custom: p.custom ?? [],
       topics: p.topics ?? [],
+      topicOverrides: p.topicOverrides ?? {},
+      hiddenTopics: p.hiddenTopics ?? [],
       settings: { ...base.settings, ...(p.settings ?? {}) },
     }
   } catch {
@@ -101,18 +107,23 @@ export function useStore() {
     return added
   }
 
-  function addTopic(label: string, emoji: string): Topic {
-    const topic: Topic = { id: `c-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 4)}`, label: label.trim().slice(0, 40), emoji: emoji.trim() || '📚', custom: true }
+  function addTopic(label: string, emoji: string, color = 0): Topic {
+    const topic: Topic = { id: `c-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 4)}`, label: label.trim().slice(0, 40), emoji: emoji.trim() || '📚', color, custom: true }
     state.value.topics.push(topic)
     save()
     return topic
   }
 
-  function renameTopic(id: string, label: string, emoji: string) {
-    const t = state.value.topics.find((x) => x.id === id)
-    if (!t || !label.trim()) return
-    t.label = label.trim().slice(0, 40)
-    t.emoji = emoji.trim() || t.emoji
+  /** Sửa tên, emoji, màu. Chủ đề có sẵn được lưu dưới dạng ghi đè nên có thể sửa như chủ đề tự tạo. */
+  function updateTopic(id: string, patch: { label?: string; emoji?: string; color?: number }) {
+    const clean = {
+      ...(patch.label?.trim() ? { label: patch.label.trim().slice(0, 40) } : {}),
+      ...(patch.emoji?.trim() ? { emoji: patch.emoji.trim() } : {}),
+      ...(patch.color !== undefined ? { color: patch.color } : {}),
+    }
+    const own = state.value.topics.find((t) => t.id === id)
+    if (own) Object.assign(own, clean)
+    else state.value.topicOverrides[id] = { ...state.value.topicOverrides[id], ...clean }
     save()
   }
 
@@ -121,6 +132,17 @@ export function useStore() {
     for (const s of state.value.custom) if (s.t === id) delete state.value.cards[s.id]
     state.value.custom = state.value.custom.filter((s) => s.t !== id)
     state.value.topics = state.value.topics.filter((t) => t.id !== id)
+    save()
+  }
+
+  /** Chủ đề có sẵn không xóa hẳn được (dữ liệu nằm trong app) nên chỉ ẩn, có thể khôi phục. */
+  function hideTopic(id: string) {
+    if (!state.value.hiddenTopics.includes(id)) state.value.hiddenTopics.push(id)
+    save()
+  }
+
+  function unhideTopic(id: string) {
+    state.value.hiddenTopics = state.value.hiddenTopics.filter((x) => x !== id)
     save()
   }
 
@@ -141,15 +163,15 @@ export function useStore() {
   }
 
   function exportJson() {
-    return JSON.stringify({ cards: state.value.cards, days: state.value.days, custom: state.value.custom, topics: state.value.topics, settings: state.value.settings })
+    return JSON.stringify({ cards: state.value.cards, days: state.value.days, custom: state.value.custom, topics: state.value.topics, topicOverrides: state.value.topicOverrides, hiddenTopics: state.value.hiddenTopics, settings: state.value.settings })
   }
 
   function importJson(raw: string) {
     const p = JSON.parse(raw) as Partial<Persisted>
     if (typeof p !== 'object' || !p) throw new Error('invalid')
-    state.value = { ...defaults(), cards: p.cards ?? {}, days: p.days ?? {}, custom: p.custom ?? [], topics: p.topics ?? [], settings: { ...defaults().settings, ...(p.settings ?? {}) } }
+    state.value = { ...defaults(), cards: p.cards ?? {}, days: p.days ?? {}, custom: p.custom ?? [], topics: p.topics ?? [], topicOverrides: p.topicOverrides ?? {}, hiddenTopics: p.hiddenTopics ?? [], settings: { ...defaults().settings, ...(p.settings ?? {}) } }
     save()
   }
 
-  return { state, grade, today, streak, learned, addSentences, removeSentence, addTopic, renameTopic, removeTopic, setSettings, reset, save, exportJson, importJson }
+  return { state, grade, today, streak, learned, addSentences, removeSentence, addTopic, updateTopic, removeTopic, hideTopic, unhideTopic, setSettings, reset, save, exportJson, importJson }
 }

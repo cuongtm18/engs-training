@@ -55,7 +55,7 @@ function offlineResult(s: Sentence, text: string, reason: string): CheckResult {
     structureOk: ok,
     naturalness: ok ? Math.round(ratio * 100) : 0,
     natural: s.en,
-    explanation: `${reason} The app can only estimate by comparing with the sample sentence, so treat the score as a rough guide.`,
+    explanation: `${reason} App chỉ ước lượng bằng cách so với câu mẫu nên điểm chỉ mang tính tham khảo.`,
     engine: 'offline',
   }
 }
@@ -66,7 +66,7 @@ async function submit() {
   if (!s || !text || phase.value !== 'answer') return
 
   if (matchesAny(text, s)) {
-    finish({ structureOk: true, naturalness: 100, natural: text, explanation: 'Spot on! This is correct and sounds very natural.', engine: 'local' })
+    finish({ structureOk: true, naturalness: 100, natural: text, explanation: 'Chuẩn rồi! Câu này đúng và nghe rất tự nhiên.', engine: 'local' })
     return
   }
 
@@ -100,7 +100,7 @@ function finish(res: CheckResult) {
 function reveal() {
   const s = current.value
   if (!s || phase.value !== 'answer') return
-  finish({ structureOk: false, naturalness: 0, natural: s.en, explanation: 'You peeked at the answer. This sentence will come back soon for review.', engine: 'local' })
+  finish({ structureOk: false, naturalness: 0, natural: s.en, explanation: 'Bạn đã xem đáp án. Câu này sẽ quay lại sớm để ôn.', engine: 'local' })
 }
 
 function next() {
@@ -143,16 +143,16 @@ onBeforeUnmount(() => {
   if (import.meta.client && 'speechSynthesis' in window) speechSynthesis.cancel()
 })
 
-const title = { perfect: 'Excellent! 🎉', good: 'Correct! Now make it sound more natural 👍', wrong: 'Not quite right yet 💪' }
-const levelText = (n: number) => (n >= 90 ? 'Sounds like a native speaker' : n >= 70 ? 'Fairly natural' : n >= 40 ? 'A bit awkward' : 'Needs a lot of work')
+const title = { perfect: 'Tuyệt vời! 🎉', good: 'Đúng rồi, nói tự nhiên hơn nữa nhé 👍', wrong: 'Chưa đúng, thử lại nhé 💪' }
+const levelText = (n: number) => (n >= 90 ? 'Như người bản xứ' : n >= 70 ? 'Khá tự nhiên' : n >= 40 ? 'Hơi gượng' : 'Cần chỉnh nhiều')
 </script>
 
 <template>
   <template v-if="phase !== 'done' && current">
-    <header class="row top">
-      <NuxtLink to="/" class="btn ghost" aria-label="Exit">✕</NuxtLink>
+    <header class="nav">
+      <NuxtLink to="/" class="icon-btn" aria-label="Exit">✕</NuxtLink>
       <div class="bar grow"><i :style="{ width: ((index + (phase === 'result' ? 1 : 0)) / queue.length) * 100 + '%' }" /></div>
-      <span class="muted">{{ index + 1 }}/{{ queue.length }}</span>
+      <span class="muted count">{{ index + 1 }}/{{ queue.length }}</span>
     </header>
 
     <section class="card q">
@@ -189,8 +189,8 @@ const levelText = (n: number) => (n >= 90 ? 'Sounds like a native speaker' : n >
         <div class="row">
           <span class="dot" :class="result.structureOk ? 'ok' : 'no'">{{ result.structureOk ? '✓' : '✕' }}</span>
           <div class="grow">
-            <b>Step 1 · Structure and meaning</b>
-            <div class="muted small">{{ result.structureOk ? 'Correct structure, complete meaning' : 'The structure or meaning needs work' }}</div>
+            <b>Bước 1 · Cấu trúc và ý nghĩa</b>
+            <div class="muted small">{{ result.structureOk ? 'Đúng cấu trúc, đủ ý' : 'Chưa đúng cấu trúc hoặc chưa đủ ý' }}</div>
           </div>
         </div>
       </div>
@@ -199,15 +199,15 @@ const levelText = (n: number) => (n >= 90 ? 'Sounds like a native speaker' : n >
         <div class="row">
           <span class="dot" :class="result.structureOk ? (result.naturalness >= 80 ? 'ok' : 'mid') : 'lock'">{{ result.structureOk ? '%' : '🔒' }}</span>
           <div class="grow">
-            <b>Step 2 · Naturalness<template v-if="result.structureOk"> · {{ result.naturalness }}%</template></b>
+            <b>Bước 2 · Độ tự nhiên<template v-if="result.structureOk"> · {{ result.naturalness }}%</template></b>
             <div v-if="result.structureOk" class="meter"><i :style="{ width: result.naturalness + '%' }" :class="result.naturalness >= 80 ? 'hi' : result.naturalness >= 50 ? 'mid' : 'lo'" /></div>
-            <div class="muted small">{{ result.structureOk ? levelText(result.naturalness) : 'Fix the structure first, then naturalness gets scored' }}</div>
+            <div class="muted small">{{ result.structureOk ? levelText(result.naturalness) : 'Sửa cấu trúc trước, rồi mới chấm độ tự nhiên' }}</div>
           </div>
         </div>
       </div>
 
       <div class="natural">
-        <div class="muted small">Natural version</div>
+        <div class="muted small">Cách nói tự nhiên</div>
         <div class="row">
           <b class="grow">{{ result.natural }}</b>
           <button class="btn ghost" aria-label="Listen" @click="speak(result.natural)">🔊</button>
@@ -218,7 +218,7 @@ const levelText = (n: number) => (n >= 90 ? 'Sounds like a native speaker' : n >
       <p v-if="current.note" class="note">💡 {{ current.note }}</p>
 
       <details v-if="current.alt?.length" class="alts">
-        <summary>Other ways to say it</summary>
+        <summary>Các cách nói khác</summary>
         <ul>
           <li v-for="a in [current.en, ...current.alt]" :key="a">{{ a }}</li>
         </ul>
@@ -231,9 +231,9 @@ const levelText = (n: number) => (n >= 90 ? 'Sounds like a native speaker' : n >
   <section v-else-if="phase === 'done'" class="card done">
     <h1>Round complete! 🎊</h1>
     <div class="sum">
-      <div><b>{{ tally.perfect }}</b><span class="muted">very natural</span></div>
-      <div><b>{{ tally.good }}</b><span class="muted">correct, could be more natural</span></div>
-      <div><b>{{ tally.wrong }}</b><span class="muted">to review</span></div>
+      <div><b>{{ tally.perfect }}</b><span class="muted">rất tự nhiên</span></div>
+      <div><b>{{ tally.good }}</b><span class="muted">đúng, cần tự nhiên hơn</span></div>
+      <div><b>{{ tally.wrong }}</b><span class="muted">cần ôn lại</span></div>
     </div>
     <p class="muted">🔥 Streak: {{ store.streak.value }} {{ store.streak.value === 1 ? 'day' : 'days' }} · Today: {{ store.today.value }} answered</p>
     <div class="row">
@@ -244,11 +244,11 @@ const levelText = (n: number) => (n >= 90 ? 'Sounds like a native speaker' : n >
 </template>
 
 <style scoped>
-.top { margin: 8px 0 14px; }
+.count { font-variant-numeric: tabular-nums; min-width: 38px; text-align: right; }
 .bar { height: 10px; background: var(--soft); border-radius: 99px; overflow: hidden; }
 .bar i { display: block; height: 100%; background: var(--accent); transition: width .3s; }
 .between { justify-content: space-between; }
-.q { display: flex; flex-direction: column; gap: 12px; margin-bottom: 14px; }
+.q { display: flex; flex-direction: column; gap: 12px; margin-bottom: 14px; margin-top: 6px; }
 .vi { font-size: 1.35rem; font-weight: 600; margin: 0; line-height: 1.4; }
 .actions .btn { flex-shrink: 0; }
 .actions .grow { flex: 1 1 140px; }

@@ -13,6 +13,8 @@ export interface Topic {
   id: string
   label: string
   emoji: string
+  /** Chỉ số màu trong TOPIC_COLORS */
+  color?: number
   /** Chủ đề do người dùng tự tạo */
   custom?: boolean
 }

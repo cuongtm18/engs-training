@@ -3,8 +3,8 @@
 PWA luyện phản xạ dịch **Việt → Anh** qua tình huống hằng ngày. App đưa câu tiếng Việt, bạn gõ tiếng Anh, app chấm và gợi ý cách nói tự nhiên hơn.
 
 - Nuxt 3 (SPA) + `@vite-pwa/nuxt`, deploy lên **Cloudflare Pages**
-- Giao diện và phản hồi của AI bằng tiếng Anh; câu đề bài trong luyện tập vẫn là tiếng Việt
-- Tự tạo chủ đề mới (nút **＋ New topic**), mỗi chủ đề trống có nút **✨ AI script** để AI viết sẵn một kịch bản câu (có thể mô tả tình huống), xem lại rồi lưu
+- Giao diện bằng tiếng Anh theo kiểu app native (thanh tab dưới, bottom sheet, vuốt để xóa); phần đánh giá và nhận xét sau mỗi câu luyện bằng tiếng Việt; câu đề bài luyện tập là tiếng Việt
+- Thêm, sửa (tên, emoji, màu) và xóa chủ đề: nút **＋** hoặc **Edit** ở màn hình Topics, hoặc nhấn giữ một chủ đề. Chủ đề có sẵn khi xóa chỉ bị ẩn và khôi phục được trong Settings. Chủ đề tự tạo có, mỗi chủ đề trống có nút **✨ AI script** để AI viết sẵn một kịch bản câu (có thể mô tả tình huống), xem lại rồi lưu
 - Mỗi chủ đề có 2 chế độ: **📖 Học** (xem câu Việt + đáp án + cách nói khác, nghe phát âm, ẩn tiếng Anh để tự kiểm tra, tự thêm câu và AI dịch) và **✍️ Luyện tập** (nhìn câu Việt, gõ câu Anh)
 - Chấm 2 bước: (1) đúng cấu trúc và đủ ý chưa, (2) nếu đúng cấu trúc mới chấm **% độ tự nhiên**. Không bắt phải giống đáp án mẫu: AI chấp nhận mọi cách dịch đúng nghĩa; nếu khớp câu mẫu thì chấm ngay, không tốn lượt AI
 - 181 câu mẫu trong `data/sentences.json`, câu bạn tự thêm lưu trên máy (chủ đề "Câu của tôi" hoặc bất kỳ chủ đề nào)

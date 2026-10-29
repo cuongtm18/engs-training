@@ -54,7 +54,7 @@ export type Verdict = 'perfect' | 'good' | 'wrong'
 /** perfect: đúng cấu trúc và rất tự nhiên; good: đúng cấu trúc; wrong: sai cấu trúc/ý nghĩa. */
 export function verdictOf(r: CheckResult): Verdict {
   if (!r.structureOk) return 'wrong'
-  return r.naturalness >= 80 ? 'perfect' : 'good'
+  return r.naturalness >= 85 ? 'perfect' : 'good'
 }
 
 /** Tỉ lệ từ trùng với đáp án gần nhất, dùng để ước lượng khi offline. */
