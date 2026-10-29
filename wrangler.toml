@@ -1,0 +1,12 @@
+name = "engs-training"
+compatibility_date = "2025-07-15"
+compatibility_flags = ["nodejs_compat"]
+pages_build_output_dir = "dist"
+
+# Workers AI (free tier) dùng làm phương án dự phòng.
+[ai]
+binding = "AI"
+
+# Biến bí mật đặt qua dashboard hoặc `wrangler pages secret put`:
+#   GEMINI_API_KEY   (khuyên dùng, lấy free ở Google AI Studio)
+#   ACCESS_CODE      (tùy chọn: mã để người lạ không dùng ké hạn mức AI của bạn)

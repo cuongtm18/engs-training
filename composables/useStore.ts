@@ -1,0 +1,110 @@
+import type { CardState, CheckResult, Settings } from '~/utils/types'
+
+const KEY = 'engs.v1'
+const INTERVAL_DAYS = [0, 1, 3, 7, 16, 35]
+const DAY = 86_400_000
+
+interface Persisted {
+  cards: Record<string, CardState>
+  days: Record<string, number>
+  settings: Settings
+  cache: Record<string, CheckResult>
+}
+
+const defaults = (): Persisted => ({
+  cards: {},
+  days: {},
+  cache: {},
+  settings: { accessCode: '', seconds: 20, sessionSize: 10, dailyNew: 10 },
+})
+
+export const dayKey = (d = new Date()) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+
+function load(): Persisted {
+  const base = defaults()
+  try {
+    const raw = localStorage.getItem(KEY)
+    if (!raw) return base
+    const p = JSON.parse(raw) as Partial<Persisted>
+    return {
+      cards: p.cards ?? {},
+      days: p.days ?? {},
+      cache: p.cache ?? {},
+      settings: { ...base.settings, ...(p.settings ?? {}) },
+    }
+  } catch {
+    return base
+  }
+}
+
+export function useStore() {
+  const state = useState<Persisted>('engs-store', () => (import.meta.client ? load() : defaults()))
+
+  function save() {
+    try {
+      // giữ cache ở mức vừa phải
+      const keys = Object.keys(state.value.cache)
+      if (keys.length > 300) for (const k of keys.slice(0, keys.length - 300)) delete state.value.cache[k]
+      localStorage.setItem(KEY, JSON.stringify(state.value))
+    } catch {
+      /* bộ nhớ đầy hoặc bị chặn: bỏ qua */
+    }
+  }
+
+  /** Cập nhật thẻ sau khi trả lời. quality: 2 = tốt & nhanh, 1 = đúng, 0 = sai. */
+  function grade(id: string, quality: 0 | 1 | 2) {
+    const c = state.value.cards[id] ?? { box: 0, due: 0, reps: 0, lapses: 0 }
+    c.reps++
+    if (quality === 0) {
+      c.lapses++
+      c.box = 0
+      c.due = Date.now() + 10 * 60_000
+    } else {
+      c.box = Math.min(c.box + (quality === 2 ? 1 : 0) + (c.box === 0 ? 1 : 0), INTERVAL_DAYS.length - 1)
+      c.due = Date.now() + INTERVAL_DAYS[c.box]! * DAY
+    }
+    state.value.cards[id] = c
+    const k = dayKey()
+    state.value.days[k] = (state.value.days[k] ?? 0) + 1
+    save()
+  }
+
+  const today = computed(() => state.value.days[dayKey()] ?? 0)
+
+  const streak = computed(() => {
+    let n = 0
+    const d = new Date()
+    if (!state.value.days[dayKey(d)]) d.setDate(d.getDate() - 1)
+    while (state.value.days[dayKey(d)]) {
+      n++
+      d.setDate(d.getDate() - 1)
+    }
+    return n
+  })
+
+  const learned = computed(() => Object.values(state.value.cards).filter((c) => c.box >= 3).length)
+
+  function setSettings(patch: Partial<Settings>) {
+    Object.assign(state.value.settings, patch)
+    save()
+  }
+
+  function reset() {
+    state.value = defaults()
+    save()
+  }
+
+  function exportJson() {
+    return JSON.stringify({ cards: state.value.cards, days: state.value.days, settings: state.value.settings })
+  }
+
+  function importJson(raw: string) {
+    const p = JSON.parse(raw) as Partial<Persisted>
+    if (typeof p !== 'object' || !p) throw new Error('invalid')
+    state.value = { ...defaults(), cards: p.cards ?? {}, days: p.days ?? {}, settings: { ...defaults().settings, ...(p.settings ?? {}) } }
+    save()
+  }
+
+  return { state, grade, today, streak, learned, setSettings, reset, save, exportJson, importJson }
+}
