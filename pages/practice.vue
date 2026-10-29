@@ -63,13 +63,21 @@ function stopTimer() {
   elapsed.value = (performance.now() - started) / 1000
 }
 
-function offlineVerdict(s: Sentence, text: string): CheckResult {
+function errorDetail(e: any): string {
+  const detail = e?.data?.data?.detail
+  if (detail) return detail
+  const code = e?.statusCode ?? e?.response?.status
+  if (code) return `Server trả về lỗi ${code}.`
+  return 'Không kết nối được tới server (có thể đang offline).'
+}
+
+function offlineVerdict(s: Sentence, text: string, reason: string): CheckResult {
   const { ref } = diffWords(text, closestAnswer(text, s))
   const ratio = ref.filter((t) => t.ok).length / Math.max(ref.length, 1)
   return {
     verdict: ratio >= 0.85 ? 'good' : 'wrong',
     natural: closestAnswer(text, s),
-    explanation: 'Không gọi được AI nên app chỉ so sánh với đáp án mẫu.',
+    explanation: `${reason} App chỉ so sánh với đáp án mẫu.`,
     engine: 'offline',
   }
 }
@@ -99,8 +107,8 @@ async function submit() {
     })
     store.state.value.cache[ck] = res
     finish(res)
-  } catch {
-    finish(offlineVerdict(s, text))
+  } catch (e) {
+    finish(offlineVerdict(s, text, errorDetail(e)))
   }
 }
 

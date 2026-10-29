@@ -116,7 +116,7 @@ export default defineEventHandler(async (event) => {
   const env = ((event.context as any).cloudflare?.env ?? process.env) as Env
 
   if (env.ACCESS_CODE && getHeader(event, 'x-access-code') !== env.ACCESS_CODE) {
-    throw createError({ statusCode: 401, statusMessage: 'Sai mã truy cập' })
+    throw createError({ statusCode: 401, statusMessage: 'Unauthorized', data: { detail: 'Sai mã truy cập: hãy nhập đúng ACCESS_CODE trong ⚙️ Cài đặt.' } })
   }
 
   const body = await readBody<Body>(event)
@@ -125,7 +125,7 @@ export default defineEventHandler(async (event) => {
   const reference = String(body?.reference ?? '').trim()
   const alternatives = (body?.alternatives ?? []).slice(0, 6).map((s) => String(s).slice(0, 300))
   if (!vi || !answer || !reference || vi.length > 300 || answer.length > 300 || reference.length > 300) {
-    throw createError({ statusCode: 400, statusMessage: 'Dữ liệu không hợp lệ' })
+    throw createError({ statusCode: 400, statusMessage: 'Bad Request', data: { detail: 'Dữ liệu gửi lên không hợp lệ.' } })
   }
 
   const prompt = buildPrompt({ vi, answer, reference, alternatives })
@@ -145,8 +145,14 @@ export default defineEventHandler(async (event) => {
       errors.push((e as Error).message)
     }
   }
+  // statusMessage phải là ASCII (Cloudflare từ chối ký tự khác trong header), nội dung tiếng Việt để trong data.
   throw createError({
     statusCode: 503,
-    statusMessage: errors.length ? `AI lỗi: ${errors.join('; ')}` : 'Chưa cấu hình AI (GEMINI_API_KEY hoặc binding AI)',
+    statusMessage: 'AI unavailable',
+    data: {
+      detail: errors.length
+        ? `AI báo lỗi: ${errors.join('; ')}`
+        : 'Server chưa thấy GEMINI_API_KEY hoặc binding AI. Kiểm tra biến môi trường (Production) rồi deploy lại.',
+    },
   })
 })
