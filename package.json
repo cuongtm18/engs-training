@@ -7,7 +7,8 @@
     "build": "nuxt build",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
-    "postinstall": "nuxt prepare"
+    "postinstall": "nuxt prepare",
+    "deploy:cf": "nuxt build && npx wrangler@4 pages deploy dist --project-name engs-training --branch main"
   },
   "dependencies": {
     "nuxt": "^3.17.0",

@@ -37,3 +37,13 @@ Mỗi phần tử trong `data/sentences.json`:
 ```
 
 `t` là id chủ đề trong `utils/topics.ts`, `l` là mức 1-3, `alt` là các cách nói khác cũng được tính đúng.
+
+## Deploy thủ công từ máy
+
+Cần đăng nhập Cloudflare một lần (`npx wrangler@4 login`), rồi:
+
+```bash
+pnpm run deploy:cf   # hoặc: npm run deploy:cf
+```
+
+Lệnh này build production rồi đẩy thư mục `dist` lên project `engs-training`. (Không đặt tên script là `deploy` vì `pnpm deploy` là lệnh có sẵn của pnpm.)
