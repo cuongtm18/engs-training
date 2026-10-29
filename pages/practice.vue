@@ -150,7 +150,7 @@ const levelText = (n: number) => (n >= 90 ? 'Như người bản xứ' : n >= 70
 <template>
   <template v-if="phase !== 'done' && current">
     <header class="nav">
-      <NuxtLink to="/" class="icon-btn" aria-label="Exit">✕</NuxtLink>
+      <NuxtLink to="/" class="icon-btn" aria-label="Exit"><AppIcon name="x" :size="18" /></NuxtLink>
       <div class="bar grow"><i :style="{ width: ((index + (phase === 'result' ? 1 : 0)) / queue.length) * 100 + '%' }" /></div>
       <span class="muted count">{{ index + 1 }}/{{ queue.length }}</span>
     </header>
@@ -187,7 +187,7 @@ const levelText = (n: number) => (n >= 90 ? 'Như người bản xứ' : n >= 70
 
       <div class="step">
         <div class="row">
-          <span class="dot" :class="result.structureOk ? 'ok' : 'no'">{{ result.structureOk ? '✓' : '✕' }}</span>
+          <span class="dot" :class="result.structureOk ? 'ok' : 'no'"><AppIcon :name="result.structureOk ? 'check' : 'x'" :size="18" :stroke="3" /></span>
           <div class="grow">
             <b>Bước 1 · Cấu trúc và ý nghĩa</b>
             <div class="muted small">{{ result.structureOk ? 'Đúng cấu trúc, đủ ý' : 'Chưa đúng cấu trúc hoặc chưa đủ ý' }}</div>
@@ -210,7 +210,7 @@ const levelText = (n: number) => (n >= 90 ? 'Như người bản xứ' : n >= 70
         <div class="muted small">Cách nói tự nhiên</div>
         <div class="row">
           <b class="grow">{{ result.natural }}</b>
-          <button class="btn ghost" aria-label="Listen" @click="speak(result.natural)">🔊</button>
+          <button class="btn ghost listen" aria-label="Listen" @click="speak(result.natural)"><AppIcon name="volume" :size="20" /></button>
         </div>
       </div>
 
@@ -269,6 +269,7 @@ const levelText = (n: number) => (n >= 90 ? 'Như người bản xứ' : n >= 70
 .meter i.mid { background: var(--warn); }
 .meter i.lo { background: var(--bad); }
 .natural b { font-size: 1.1rem; }
+.listen { min-width: 48px; padding: 0; }
 .small { font-size: .8rem; }
 .expl, .note { margin: 0; }
 .tag { font-size: .75rem; padding: 2px 8px; border-radius: 99px; background: var(--soft); }

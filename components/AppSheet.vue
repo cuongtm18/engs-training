@@ -50,7 +50,7 @@ onBeforeUnmount(() => {
           <div class="grab" @touchstart.passive="onStart" @touchmove.passive="onMove" @touchend="onEnd">
             <i />
             <div class="bar">
-              <button class="x" aria-label="Close" @click="close">✕</button>
+              <button class="x" aria-label="Close" @click="close"><AppIcon name="x" :size="16" /></button>
               <b class="ttl">{{ title }}</b>
               <span class="x ph" />
             </div>
@@ -72,7 +72,7 @@ onBeforeUnmount(() => {
 .grab > i { display: block; width: 38px; height: 5px; border-radius: 9px; background: var(--line); margin: 0 auto 6px; }
 .bar { display: flex; align-items: center; justify-content: space-between; min-height: 40px; }
 .ttl { font-size: 1.05rem; }
-.x { width: 36px; height: 36px; border-radius: 50%; border: 0; background: var(--soft); color: var(--ink); font: inherit; cursor: pointer; }
+.x { width: 36px; height: 36px; border-radius: 50%; border: 0; background: var(--soft); color: var(--ink); font: inherit; cursor: pointer; display: grid; place-items: center; padding: 0; }
 .x.ph { visibility: hidden; }
 .body { overflow-y: auto; padding: 8px 16px 16px; display: flex; flex-direction: column; gap: 12px; overscroll-behavior: contain; }
 .foot { padding: 10px 16px calc(14px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: var(--bg); }

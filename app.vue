@@ -80,7 +80,7 @@ h2 { font-size: 1.05rem; margin: 0 0 8px; }
 .btn.primary { background: var(--accent); color: var(--accent-ink); box-shadow: 0 4px 14px color-mix(in srgb, var(--accent) 35%, transparent); }
 .btn.block { width: 100%; }
 .btn.ghost { background: transparent; border: 1px solid var(--line); }
-.icon-btn { appearance: none; border: 0; width: 40px; height: 40px; border-radius: 50%; background: var(--card); border: 1px solid var(--line); color: var(--ink); font: inherit; font-size: 1.1rem; cursor: pointer; display: inline-grid; place-items: center; text-decoration: none; box-shadow: var(--shadow); transition: transform .1s; }
+.icon-btn { appearance: none; border: 0; width: 40px; height: 40px; border-radius: 50%; background: var(--card); border: 1px solid var(--line); color: var(--ink); font: inherit; font-size: 1.1rem; cursor: pointer; display: inline-grid; place-items: center; padding: 0; flex: none; text-decoration: none; box-shadow: var(--shadow); transition: transform .1s; }
 .icon-btn:active { transform: scale(.92); }
 
 /* segmented control */

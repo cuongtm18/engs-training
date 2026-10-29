@@ -48,17 +48,17 @@ async function doReset() {
     <div class="item">
       <span class="grow">Sentences per round</span>
       <div class="stepper">
-        <button :disabled="s.sessionSize <= 3" aria-label="Fewer" @click="step('sessionSize', -1, 3, 50)">−</button>
+        <button :disabled="s.sessionSize <= 3" aria-label="Fewer" @click="step('sessionSize', -1, 3, 50)"><AppIcon name="minus" :size="16" /></button>
         <b>{{ s.sessionSize }}</b>
-        <button :disabled="s.sessionSize >= 50" aria-label="More" @click="step('sessionSize', 1, 3, 50)">＋</button>
+        <button :disabled="s.sessionSize >= 50" aria-label="More" @click="step('sessionSize', 1, 3, 50)"><AppIcon name="plus" :size="16" /></button>
       </div>
     </div>
     <div class="item">
       <span class="grow">Max new per round</span>
       <div class="stepper">
-        <button :disabled="s.dailyNew <= 0" aria-label="Fewer" @click="step('dailyNew', -1, 0, 100)">−</button>
+        <button :disabled="s.dailyNew <= 0" aria-label="Fewer" @click="step('dailyNew', -1, 0, 100)"><AppIcon name="minus" :size="16" /></button>
         <b>{{ s.dailyNew }}</b>
-        <button :disabled="s.dailyNew >= 100" aria-label="More" @click="step('dailyNew', 1, 0, 100)">＋</button>
+        <button :disabled="s.dailyNew >= 100" aria-label="More" @click="step('dailyNew', 1, 0, 100)"><AppIcon name="plus" :size="16" /></button>
       </div>
     </div>
   </section>
@@ -107,7 +107,7 @@ async function doReset() {
 .link { appearance: none; border: 0; background: none; color: var(--accent); font: inherit; font-weight: 650; cursor: pointer; }
 .stepper { display: flex; align-items: center; gap: 4px; background: var(--soft); border-radius: 12px; padding: 3px; }
 .stepper b { min-width: 34px; text-align: center; font-variant-numeric: tabular-nums; }
-.stepper button { appearance: none; border: 0; width: 36px; height: 34px; border-radius: 9px; background: var(--card); color: var(--ink); font: inherit; font-size: 1.1rem; cursor: pointer; }
+.stepper button { appearance: none; border: 0; width: 36px; height: 34px; border-radius: 9px; background: var(--card); color: var(--ink); cursor: pointer; display: grid; place-items: center; padding: 0; }
 .stepper button:disabled { opacity: .35; }
 .note { margin: 10px 12px 0; font-size: .85rem; color: var(--muted); }
 </style>

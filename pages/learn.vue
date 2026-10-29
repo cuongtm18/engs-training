@@ -58,9 +58,9 @@ onBeforeUnmount(() => {
 <template>
   <template v-if="topic">
     <header class="nav">
-      <NuxtLink to="/" class="icon-btn" aria-label="Back to topics">‹</NuxtLink>
+      <NuxtLink to="/" class="icon-btn" aria-label="Back to topics"><AppIcon name="chevron-left" :size="20" /></NuxtLink>
       <span class="title">{{ topic.emoji }} {{ topic.label }}</span>
-      <button class="icon-btn" aria-label="Edit topic" @click="editOpen = true">✎</button>
+      <button class="icon-btn" aria-label="Edit topic" @click="editOpen = true"><AppIcon name="edit" :size="18" /></button>
     </header>
 
     <section class="hero" :style="{ '--c': color }">
@@ -73,7 +73,7 @@ onBeforeUnmount(() => {
 
     <div class="row actions">
       <NuxtLink v-if="list.length" :to="{ path: '/practice', query: { t: topic.id } }" class="btn primary grow">✍️ Practice</NuxtLink>
-      <button class="btn grow" @click="addOpen = true">＋ Add sentences</button>
+      <button class="btn grow" @click="addOpen = true"><AppIcon name="plus" :size="18" /> Add sentences</button>
     </div>
 
     <div v-if="list.length" class="row bar">
@@ -94,7 +94,7 @@ onBeforeUnmount(() => {
           <div class="row">
             <button v-if="hideEn && !revealed[s.id]" class="peek grow" @click="revealed[s.id] = true">Tap to show the English</button>
             <b v-else class="en grow">{{ s.en }}</b>
-            <button class="icon-btn small-ic" aria-label="Listen" @click="speak(s.en)">🔊</button>
+            <button class="icon-btn small-ic" aria-label="Listen" @click="speak(s.en)"><AppIcon name="volume" :size="18" /></button>
           </div>
           <div class="vi" lang="vi">{{ s.vi }}</div>
           <template v-if="!hideEn || revealed[s.id]">
