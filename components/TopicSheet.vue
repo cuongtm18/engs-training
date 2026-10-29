@@ -73,8 +73,8 @@ async function remove() {
     </div>
 
     <div class="lbl">Color
-      <div class="row wrap">
-        <button v-for="(c, i) in TOPIC_COLORS" :key="c" class="swatch" :class="{ on: color === i }" :style="{ background: c }" :aria-label="`Color ${i + 1}`" @click="color = i" />
+      <div class="swatches">
+        <button v-for="(c, i) in TOPIC_COLORS" :key="c" class="swatch-cell" :aria-label="`Color ${i + 1}`" :aria-pressed="color === i" @click="color = i"><i class="swatch" :class="{ on: color === i }" :style="{ background: c }" /></button>
       </div>
     </div>
 
@@ -93,7 +93,9 @@ async function remove() {
 .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
 .cell { appearance: none; border: 2px solid transparent; background: var(--card); border-radius: 14px; font-size: 1.4rem; padding: 8px 0; cursor: pointer; }
 .cell.on { border-color: var(--accent); background: var(--soft); }
-.swatch { width: 36px; height: 36px; border-radius: 50%; border: 3px solid var(--bg); box-shadow: 0 0 0 1px var(--line); cursor: pointer; }
-.swatch.on { box-shadow: 0 0 0 3px var(--ink); }
+.swatches { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); }
+.swatch-cell { appearance: none; border: 0; background: none; padding: 0; height: 44px; display: grid; place-items: center; cursor: pointer; }
+.swatch { display: block; width: 30px; height: 30px; border-radius: 50%; border: 3px solid var(--bg); box-shadow: 0 0 0 1px var(--line); transition: box-shadow .12s, transform .12s; }
+.swatch.on { box-shadow: 0 0 0 2.5px var(--ink); transform: scale(1.08); }
 .btn.danger { color: var(--bad); background: var(--card); border: 1px solid var(--line); }
 </style>

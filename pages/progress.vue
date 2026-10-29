@@ -8,7 +8,7 @@ const week = computed(() => {
   const d = new Date()
   d.setDate(d.getDate() - 6)
   for (let i = 0; i < 7; i++) {
-    out.push({ label: d.toLocaleDateString('en-US', { weekday: 'short' }).slice(0, 2), n: store.state.value.days[dayKey(d)] ?? 0, today: i === 6 })
+    out.push({ label: d.toLocaleDateString('en-US', { weekday: 'short' }), n: store.state.value.days[dayKey(d)] ?? 0, today: i === 6 })
     d.setDate(d.getDate() + 1)
   }
   return out

@@ -156,7 +156,7 @@ const levelText = (n: number) => (n >= 90 ? 'Như người bản xứ' : n >= 70
     </header>
 
     <section class="card q">
-      <span class="muted">{{ topic ? topic.emoji + ' ' + topic.label : 'Review' }} · Sentence {{ index + 1 }}</span>
+      <span class="crumb muted"><span class="ct">{{ topic ? topic.emoji + ' ' + topic.label : 'Review' }}</span><span class="cn">Sentence {{ index + 1 }}</span></span>
       <p class="vi" lang="vi">{{ current.vi }}</p>
 
       <textarea
@@ -171,8 +171,8 @@ const levelText = (n: number) => (n >= 90 ? 'Như người bản xứ' : n >= 70
         :readonly="phase !== 'answer'"
       />
 
-      <div v-if="phase === 'answer'" class="row wrap actions">
-        <button class="btn primary grow" :disabled="!answer.trim()" @click="submit">Check</button>
+      <div v-if="phase === 'answer'" class="actions">
+        <button class="btn primary check" :disabled="!answer.trim()" @click="submit">Check</button>
         <button class="btn" @click="reveal">Show answer</button>
         <button class="btn ghost" :disabled="!answer" @click="answer = ''; input?.focus()">Clear</button>
       </div>
@@ -197,10 +197,10 @@ const levelText = (n: number) => (n >= 90 ? 'Như người bản xứ' : n >= 70
 
       <div class="step" :class="{ locked: !result.structureOk }">
         <div class="row">
-          <span class="dot" :class="result.structureOk ? (result.naturalness >= 80 ? 'ok' : 'mid') : 'lock'">{{ result.structureOk ? '%' : '🔒' }}</span>
+          <span class="dot" :class="result.structureOk ? (result.naturalness >= 85 ? 'ok' : 'mid') : 'lock'"><template v-if="result.structureOk">%</template><AppIcon v-else name="lock" :size="17" /></span>
           <div class="grow">
             <b>Bước 2 · Độ tự nhiên<template v-if="result.structureOk"> · {{ result.naturalness }}%</template></b>
-            <div v-if="result.structureOk" class="meter"><i :style="{ width: result.naturalness + '%' }" :class="result.naturalness >= 80 ? 'hi' : result.naturalness >= 50 ? 'mid' : 'lo'" /></div>
+            <div v-if="result.structureOk" class="meter"><i :style="{ width: result.naturalness + '%' }" :class="result.naturalness >= 85 ? 'hi' : result.naturalness >= 50 ? 'mid' : 'lo'" /></div>
             <div class="muted small">{{ result.structureOk ? levelText(result.naturalness) : 'Sửa cấu trúc trước, rồi mới chấm độ tự nhiên' }}</div>
           </div>
         </div>
@@ -232,7 +232,7 @@ const levelText = (n: number) => (n >= 90 ? 'Như người bản xứ' : n >= 70
     <h1>Round complete! 🎊</h1>
     <div class="sum">
       <div><b>{{ tally.perfect }}</b><span class="muted">rất tự nhiên</span></div>
-      <div><b>{{ tally.good }}</b><span class="muted">đúng, cần tự nhiên hơn</span></div>
+      <div><b>{{ tally.good }}</b><span class="muted">cần tự nhiên hơn</span></div>
       <div><b>{{ tally.wrong }}</b><span class="muted">cần ôn lại</span></div>
     </div>
     <p class="muted">🔥 Streak: {{ store.streak.value }} {{ store.streak.value === 1 ? 'day' : 'days' }} · Today: {{ store.today.value }} answered</p>
@@ -250,8 +250,12 @@ const levelText = (n: number) => (n >= 90 ? 'Như người bản xứ' : n >= 70
 .between { justify-content: space-between; }
 .q { display: flex; flex-direction: column; gap: 12px; margin-bottom: 14px; margin-top: 6px; }
 .vi { font-size: 1.35rem; font-weight: 600; margin: 0; line-height: 1.4; }
-.actions .btn { flex-shrink: 0; }
-.actions .grow { flex: 1 1 140px; }
+.crumb { display: flex; gap: 6px; min-width: 0; font-size: .92rem; }
+.crumb .ct { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.crumb .cn { flex: none; white-space: nowrap; }
+.crumb .cn::before { content: '·'; margin-right: 6px; }
+.actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.actions .check { grid-column: 1 / -1; }
 .checking { text-align: center; padding: 8px; }
 .res { display: flex; flex-direction: column; gap: 12px; }
 .res.perfect { background: var(--good-bg); border-color: var(--good); }
@@ -263,6 +267,7 @@ const levelText = (n: number) => (n >= 90 ? 'Như người bản xứ' : n >= 70
 .dot.ok { background: var(--good); color: #fff; }
 .dot.no { background: var(--bad); color: #fff; }
 .dot.mid { background: var(--warn); color: #fff; }
+.dot.lock { background: var(--soft); color: var(--muted); }
 .meter { height: 8px; background: var(--soft); border-radius: 99px; overflow: hidden; margin: 6px 0 4px; }
 .meter i { display: block; height: 100%; border-radius: 99px; transition: width .4s; }
 .meter i.hi { background: var(--good); }
@@ -274,10 +279,13 @@ const levelText = (n: number) => (n >= 90 ? 'Như người bản xứ' : n >= 70
 .expl, .note { margin: 0; }
 .tag { font-size: .75rem; padding: 2px 8px; border-radius: 99px; background: var(--soft); }
 .alts { font-size: .95rem; }
-.alts summary { cursor: pointer; color: var(--muted); }
+.alts summary { cursor: pointer; color: var(--muted); padding: 12px 0; margin: -6px 0; }
 .alts ul { margin: 6px 0 0; padding-left: 20px; }
-.done { text-align: center; display: flex; flex-direction: column; gap: 14px; margin-top: 40px; }
+.done { text-align: center; display: flex; flex-direction: column; gap: 16px; margin-top: 12vh; padding: 22px 18px; }
 .sum { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.sum b { display: block; font-size: 1.8rem; }
-.sum span { font-size: .8rem; }
+.sum > div { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 12px 4px; border-radius: 16px; background: var(--soft); }
+.sum b { display: block; font-size: 1.9rem; line-height: 1.1; }
+.sum > div:nth-child(1) b { color: var(--good); }
+.sum > div:nth-child(3) b { color: var(--bad); }
+.sum span { font-size: .78rem; line-height: 1.2; }
 </style>

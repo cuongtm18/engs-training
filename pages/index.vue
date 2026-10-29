@@ -116,7 +116,7 @@ function open(t: Topic) {
 
 <style scoped>
 .head { display: flex; justify-content: space-between; align-items: center; margin: 8px 0 14px; }
-.text-btn { appearance: none; border: 0; background: none; color: var(--accent); font: inherit; font-weight: 650; padding: 8px 6px; cursor: pointer; }
+.text-btn { appearance: none; border: 0; background: none; color: var(--accent); font: inherit; font-weight: 650; min-width: 48px; min-height: 44px; padding: 0 6px; cursor: pointer; }
 
 .review { display: flex; align-items: center; gap: 12px; padding: 12px 16px 12px 12px; margin-bottom: 14px; border-radius: 20px; background: var(--accent); color: #fff; text-decoration: none; box-shadow: 0 6px 18px color-mix(in srgb, var(--accent) 35%, transparent); }
 .rv-ic { flex: none; width: 40px; height: 40px; border-radius: 12px; background: rgba(255, 255, 255, .22); display: grid; place-items: center; }

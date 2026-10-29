@@ -6,6 +6,7 @@ const PATHS = {
   plus: 'M12 5v14M5 12h14',
   minus: 'M5 12h14',
   check: 'M5 13l4 4L19 7',
+  lock: 'M7 11V8a5 5 0 0110 0v3M6 11h12a1 1 0 011 1v8a1 1 0 01-1 1H6a1 1 0 01-1-1v-8a1 1 0 011-1z',
   x: 'M18 6L6 18M6 6l12 12',
   'chevron-left': 'M15 18l-6-6 6-6',
   edit: 'M12 20h9M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4L16.5 3.5z',

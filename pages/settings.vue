@@ -66,8 +66,9 @@ async function doReset() {
   <p class="cap">AI access</p>
   <section class="group">
     <label class="item col">
-      <span>Access code <span class="muted small">(only if the server sets ACCESS_CODE)</span></span>
+      <span>Access code</span>
       <input type="password" :value="s.accessCode" autocomplete="off" placeholder="Optional" @change="store.setSettings({ accessCode: ($event.target as HTMLInputElement).value })" />
+      <span class="help">Only needed if the server has an ACCESS_CODE set.</span>
     </label>
   </section>
 
@@ -104,10 +105,11 @@ async function doReset() {
 .action.danger { color: var(--bad); }
 .action:active { background: var(--soft); }
 .em { font-size: 1.3rem; }
-.link { appearance: none; border: 0; background: none; color: var(--accent); font: inherit; font-weight: 650; cursor: pointer; }
+.link { appearance: none; border: 0; background: none; color: var(--accent); font: inherit; font-weight: 650; cursor: pointer; min-height: 44px; padding: 0 4px; margin-right: -4px; }
 .stepper { display: flex; align-items: center; gap: 4px; background: var(--soft); border-radius: 12px; padding: 3px; }
 .stepper b { min-width: 34px; text-align: center; font-variant-numeric: tabular-nums; }
-.stepper button { appearance: none; border: 0; width: 36px; height: 34px; border-radius: 9px; background: var(--card); color: var(--ink); cursor: pointer; display: grid; place-items: center; padding: 0; }
+.stepper button { appearance: none; border: 0; width: 40px; height: 40px; border-radius: 9px; background: var(--card); color: var(--ink); cursor: pointer; display: grid; place-items: center; padding: 0; }
 .stepper button:disabled { opacity: .35; }
+.help { font-size: .82rem; font-weight: 400; color: var(--muted); }
 .note { margin: 10px 12px 0; font-size: .85rem; color: var(--muted); }
 </style>

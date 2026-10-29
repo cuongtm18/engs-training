@@ -72,14 +72,14 @@ onBeforeUnmount(() => {
     </section>
 
     <div class="row actions">
-      <NuxtLink v-if="list.length" :to="{ path: '/practice', query: { t: topic.id } }" class="btn primary grow">✍️ Practice</NuxtLink>
+      <NuxtLink v-if="list.length" :to="{ path: '/practice', query: { t: topic.id } }" class="btn primary grow"><AppIcon name="edit" :size="18" /> Practice</NuxtLink>
       <button class="btn grow" @click="addOpen = true"><AppIcon name="plus" :size="18" /> Add sentences</button>
     </div>
 
-    <div v-if="list.length" class="row bar">
+    <button v-if="list.length" class="row bar" role="switch" :aria-checked="hideEn" @click="hideEn = !hideEn">
       <span class="grow">Hide English</span>
-      <button class="switch" :class="{ on: hideEn }" role="switch" :aria-checked="hideEn" aria-label="Hide English" @click="hideEn = !hideEn"><i /></button>
-    </div>
+      <span class="switch" :class="{ on: hideEn }" aria-hidden="true"><i /></span>
+    </button>
 
     <div v-else class="empty">
       <div class="big">🌱</div>
@@ -122,9 +122,9 @@ onBeforeUnmount(() => {
 .hero { display: flex; align-items: center; gap: 14px; padding: 16px; margin-bottom: 12px; border-radius: 22px; background: color-mix(in srgb, var(--c) 14%, var(--card)); border: 1px solid color-mix(in srgb, var(--c) 32%, var(--line)); }
 .hero .em { font-size: 2.4rem; }
 .actions { margin-bottom: 12px; }
-.actions .btn { flex: 1 1 0; }
-.bar { padding: 4px 6px 10px; }
-.switch { appearance: none; border: 0; width: 51px; height: 31px; border-radius: 99px; background: var(--line); position: relative; cursor: pointer; transition: background .2s; padding: 0; }
+.actions .btn { flex: 1 1 0; padding: 0 10px; white-space: nowrap; font-size: .95rem; }
+.bar { width: 100%; min-height: 48px; padding: 0 6px; margin-bottom: 6px; background: none; border: 0; font: inherit; color: var(--ink); text-align: left; cursor: pointer; }
+.switch { display: block; flex: none; width: 51px; height: 31px; border-radius: 99px; background: var(--line); position: relative; cursor: pointer; transition: background .2s; padding: 0; }
 .switch i { position: absolute; top: 2px; left: 2px; width: 27px; height: 27px; border-radius: 50%; background: #fff; box-shadow: 0 2px 5px rgba(0, 0, 0, .25); transition: transform .2s; }
 .switch.on { background: var(--good); }
 .switch.on i { transform: translateX(20px); }
@@ -136,7 +136,7 @@ onBeforeUnmount(() => {
 .en { font-size: 1.08rem; line-height: 1.35; }
 .vi { color: var(--muted); }
 .peek { appearance: none; border: 1px dashed var(--line); background: transparent; color: var(--muted); border-radius: 12px; padding: 10px; font: inherit; cursor: pointer; text-align: left; }
-.small-ic { width: 38px; height: 38px; box-shadow: none; flex-shrink: 0; }
+.small-ic { box-shadow: none; flex-shrink: 0; margin: -4px -4px -4px 0; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .alt { font-size: .85rem; padding: 4px 10px; border-radius: 99px; background: var(--soft); }
 .note { margin: 0; font-size: .92rem; }

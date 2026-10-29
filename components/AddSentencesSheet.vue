@@ -141,8 +141,9 @@ function saveAll() {
       <p class="muted hint">
         <template v-if="!existing.length">This topic is empty. Let AI write a starter script for “{{ topic.label }}”.</template>
         <template v-else>Let AI write more sentences for “{{ topic.label }}”. Sentences you already have are skipped.</template>
+        <template v-if="!situation"> Tip: add a situation such as “checking in at a hotel”.</template>
       </p>
-      <input v-model="situation" maxlength="200" placeholder="Situation (optional), e.g. checking in at a hotel" :disabled="busy" @keydown.enter.prevent="generate" />
+      <input v-model="situation" maxlength="200" placeholder="Situation (optional)" :disabled="busy" @keydown.enter.prevent="generate" />
       <div class="row">
         <span class="muted grow">How many sentences</span>
         <div class="seg small">
@@ -198,5 +199,5 @@ function saveAll() {
 .between { justify-content: space-between; }
 .tag { font-size: .75rem; padding: 2px 8px; border-radius: 99px; background: var(--soft); }
 .tag.warn { background: var(--warn-bg); color: var(--warn); }
-.small-btn { min-height: 36px; padding: 6px 12px; }
+.small-btn { min-height: 44px; padding: 6px 14px; }
 </style>

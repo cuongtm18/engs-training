@@ -39,7 +39,7 @@ function fire() {
 
 <template>
   <div class="swipe">
-    <button v-if="!disabled" class="act" :style="{ width: W + 'px' }" tabindex="-1" @click="fire">{{ label }}</button>
+    <button v-if="!disabled" v-show="x < -1" class="act" :style="{ width: W + 'px' }" tabindex="-1" @click="fire">{{ label }}</button>
     <div class="row-in" :class="{ anim: animate }" :style="{ transform: `translateX(${x}px)` }" @touchstart.passive="onStart" @touchmove.passive="onMove" @touchend="onEnd" @touchcancel="onEnd" @click="x !== 0 && (x = 0)">
       <slot />
     </div>
