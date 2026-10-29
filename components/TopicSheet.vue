@@ -67,14 +67,21 @@ async function onFile(e: Event) {
   }
 }
 
-/** Cho phép gõ/dán emoji bất kỳ, kể cả từ bàn phím emoji của hệ điều hành (iPhone, Android…); chỉ lấy ký tự đầu tiên. */
+const palette = computed(() => (TOPIC_EMOJIS.includes(emoji.value) ? TOPIC_EMOJIS : [emoji.value, ...TOPIC_EMOJIS]))
+
+/** Cho phép gõ/dán emoji bất kỳ, kể cả từ bàn phím emoji của hệ điều hành (iPhone, Android…); lấy emoji vừa nhập cuối cùng. */
+const EMOJI_RE = /\p{Extended_Pictographic}|\p{Regional_Indicator}|[0-9#*]\uFE0F?\u20E3/u
 function onEmojiInput(e: Event) {
   const input = e.target as HTMLInputElement
-  const first = [...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(input.value.trim())][0]?.segment
-  input.value = ''
-  if (!first || !/\p{Extended_Pictographic}|\p{Regional_Indicator}|[0-9#*]\uFE0F?\u20E3/u.test(first)) return
-  emoji.value = first
-  icon.value = ''
+  if ((e as InputEvent).isComposing) return
+  const chars = typeof Intl.Segmenter === 'function' ? [...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(input.value)].map((x) => x.segment) : [...input.value]
+  const picked = chars.filter((c) => EMOJI_RE.test(c)).pop()
+  if (picked) {
+    emoji.value = picked
+    icon.value = ''
+  }
+  // luôn hiện emoji đang chọn trong ô để thấy ngay kết quả
+  input.value = icon.value ? '' : emoji.value
 }
 
 async function remove() {
@@ -111,9 +118,9 @@ async function remove() {
           <img v-if="icon" :src="icon" alt="" />
           <AppIcon v-else name="plus" :size="22" />
         </button>
-        <button v-for="e in TOPIC_EMOJIS" :key="e" class="cell" :class="{ on: !icon && emoji === e }" @click="emoji = e; icon = ''">{{ e }}</button>
+        <button v-for="e in palette" :key="e" class="cell" :class="{ on: !icon && emoji === e }" @click="emoji = e; icon = ''">{{ e }}</button>
       </div>
-      <input class="emoji-in" inputmode="text" placeholder="😀  Tap here, then use your keyboard's emoji" aria-label="Type any emoji" autocomplete="off" @input="onEmojiInput" />
+      <input class="emoji-in" :value="icon ? '' : emoji" placeholder="😀  Tap here, then use your keyboard's emoji" aria-label="Type any emoji" autocomplete="off" @input="onEmojiInput" />
       <input ref="fileInput" type="file" accept="image/*" hidden @change="onFile" />
       <span class="hint">{{ icon ? 'Using your uploaded image.' : 'Tap + to upload your own image.' }} <button v-if="icon" class="link" @click="icon = ''">Remove image</button></span>
       <span v-if="uploadErr" class="err">{{ uploadErr }}</span>
