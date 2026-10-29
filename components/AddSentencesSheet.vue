@@ -28,15 +28,21 @@ const err = ref('')
 const info = ref('')
 const fileInput = ref<HTMLInputElement>()
 
-/** normalized English -> where it is already saved (this topic wins over other topics) */
-function haveMap() {
-  const m = new Map<string, { same: boolean; topic: string }>()
-  for (const s of allSentences.value) {
-    const k = normalize(s.en)
-    const same = s.t === props.topic.id
-    if (!m.has(k) || (same && !m.get(k)!.same)) m.set(k, { same, topic: s.t })
+const normVi = (v: string) => v.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, ' ').replace(/\s+/g, ' ').trim()
+
+/** normalized English / Vietnamese -> where it is already saved (this topic wins over other topics) */
+function haveMaps() {
+  const en = new Map<string, boolean>()
+  const vi = new Map<string, boolean>()
+  const put = (m: Map<string, boolean>, k: string, same: boolean) => {
+    if (k && (!m.has(k) || (same && !m.get(k)))) m.set(k, same)
   }
-  return m
+  for (const s of allSentences.value) {
+    const same = s.t === props.topic.id
+    put(en, normalize(s.en), same)
+    put(vi, normVi(s.vi), same)
+  }
+  return { en, vi }
 }
 
 /** One sentence per line; drop blanks, bullets/numbering and duplicates. */
@@ -54,21 +60,31 @@ function parseLines(text: string): string[] {
 }
 
 const lines = computed(() => parseLines(raw.value))
-/** Per draft: 'topic'/'other' if already saved in this/another topic, 'batch' if an earlier draft has the same English. Case-insensitive, live while editing. */
-const dupKind = computed<(null | 'topic' | 'other' | 'batch')[]>(() => {
-  const known = haveMap()
-  const seen = new Set<string>()
-  return drafts.value.map((d) => {
-    const k = normalize(d.en)
-    if (!k) return null
-    const hit = known.get(k)
-    if (hit) return hit.same ? 'topic' : 'other'
-    if (seen.has(k)) return 'batch'
-    seen.add(k)
-    return null
+type Dup = { scope: 'topic' | 'other' | 'batch'; by: 'en' | 'vi' } | null
+
+/** Per draft: already saved in this/another topic, or same as an earlier draft, by English or Vietnamese. Case-insensitive, live while editing. */
+const dupKind = computed<Dup[]>(() => {
+  const known = haveMaps()
+  const seenEn = new Set<string>()
+  const seenVi = new Set<string>()
+  return drafts.value.map((d): Dup => {
+    const ke = normalize(d.en)
+    const kv = normVi(d.vi)
+    let hit: Dup = null
+    for (const [by, k, m, seen] of [['en', ke, known.en, seenEn], ['vi', kv, known.vi, seenVi]] as const) {
+      if (!k) continue
+      const same = m.get(k)
+      if (same !== undefined) hit ||= { scope: same ? 'topic' : 'other', by }
+      else if (seen.has(k)) hit ||= { scope: 'batch', by }
+    }
+    if (ke) seenEn.add(ke)
+    if (kv) seenVi.add(kv)
+    return hit
   })
 })
 const ready = computed(() => drafts.value.filter((d, i) => d.vi.trim() && d.en.trim() && !dupKind.value[i]))
+const dupText = (d: NonNullable<Dup>) =>
+  `${d.scope === 'topic' ? 'Already in this topic' : d.scope === 'other' ? 'Already saved in another topic' : 'Duplicate of a line above'} (same ${d.by === 'en' ? 'English' : 'Vietnamese'}), will be skipped`
 const noun = (n: number) => (n === 1 ? 'sentence' : 'sentences')
 
 function reset() {
@@ -208,7 +224,7 @@ function saveAll() {
         <textarea v-model="d.en" rows="2" placeholder="English…" />
         <textarea v-model="d.vi" rows="2" lang="vi" placeholder="Vietnamese…" />
         <div class="row between">
-          <span v-if="dupKind[i]" class="tag warn">⚠️ {{ dupKind[i] === 'topic' ? 'Already in this topic' : dupKind[i] === 'other' ? 'Already saved in another topic' : 'Duplicate of another line above' }}, will be skipped</span>
+          <span v-if="dupKind[i]" class="tag warn">⚠️ {{ dupText(dupKind[i]!) }}</span>
           <span v-else-if="!(d.vi && d.en)" class="tag warn">Fill in both fields</span>
           <span v-else />
           <button class="btn ghost small-btn" @click="removeDraft(i)">Remove</button>
