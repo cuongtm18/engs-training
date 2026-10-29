@@ -7,6 +7,7 @@ const emit = defineEmits<{ 'update:modelValue': [boolean]; saved: [Sentence[]] }
 const store = useStore()
 const api = useApi()
 const undo = useUndo()
+const { all: allSentences } = useSentences()
 
 interface Draft {
   vi: string
@@ -27,7 +28,16 @@ const err = ref('')
 const info = ref('')
 const fileInput = ref<HTMLInputElement>()
 
-const have = () => new Set(props.existing.map((s) => normalize(s.en)))
+/** normalized English -> where it is already saved (this topic wins over other topics) */
+function haveMap() {
+  const m = new Map<string, { same: boolean; topic: string }>()
+  for (const s of allSentences.value) {
+    const k = normalize(s.en)
+    const same = s.t === props.topic.id
+    if (!m.has(k) || (same && !m.get(k)!.same)) m.set(k, { same, topic: s.t })
+  }
+  return m
+}
 
 /** One sentence per line; drop blanks, bullets/numbering and duplicates. */
 function parseLines(text: string): string[] {
@@ -44,14 +54,15 @@ function parseLines(text: string): string[] {
 }
 
 const lines = computed(() => parseLines(raw.value))
-/** Per draft: 'topic' if already saved in this topic, 'batch' if an earlier draft has the same English. Case-insensitive, live while editing. */
-const dupKind = computed<(null | 'topic' | 'batch')[]>(() => {
-  const known = have()
+/** Per draft: 'topic'/'other' if already saved in this/another topic, 'batch' if an earlier draft has the same English. Case-insensitive, live while editing. */
+const dupKind = computed<(null | 'topic' | 'other' | 'batch')[]>(() => {
+  const known = haveMap()
   const seen = new Set<string>()
   return drafts.value.map((d) => {
     const k = normalize(d.en)
     if (!k) return null
-    if (known.has(k)) return 'topic'
+    const hit = known.get(k)
+    if (hit) return hit.same ? 'topic' : 'other'
     if (seen.has(k)) return 'batch'
     seen.add(k)
     return null
@@ -197,7 +208,7 @@ function saveAll() {
         <textarea v-model="d.en" rows="2" placeholder="English…" />
         <textarea v-model="d.vi" rows="2" lang="vi" placeholder="Vietnamese…" />
         <div class="row between">
-          <span v-if="dupKind[i]" class="tag warn">⚠️ {{ dupKind[i] === 'topic' ? 'Already in this topic' : 'Duplicate of another line above' }}, will be skipped</span>
+          <span v-if="dupKind[i]" class="tag warn">⚠️ {{ dupKind[i] === 'topic' ? 'Already in this topic' : dupKind[i] === 'other' ? 'Already saved in another topic' : 'Duplicate of another line above' }}, will be skipped</span>
           <span v-else-if="!(d.vi && d.en)" class="tag warn">Fill in both fields</span>
           <span v-else />
           <button class="btn ghost small-btn" @click="removeDraft(i)">Remove</button>
