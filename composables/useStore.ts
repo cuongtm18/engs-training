@@ -11,7 +11,7 @@ interface Persisted {
   cache: Record<string, CheckResult>
   custom: Sentence[]
   topics: Topic[]
-  topicOverrides: Record<string, Partial<Pick<Topic, 'label' | 'emoji' | 'color'>>>
+  topicOverrides: Record<string, Partial<Pick<Topic, 'label' | 'emoji' | 'color' | 'icon'>>>
   hiddenTopics: string[]
 }
 
@@ -107,22 +107,24 @@ export function useStore() {
     return added
   }
 
-  function addTopic(label: string, emoji: string, color = 0): Topic {
-    const topic: Topic = { id: `c-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 4)}`, label: label.trim().slice(0, 40), emoji: emoji.trim() || '📚', color, custom: true }
+  function addTopic(label: string, emoji: string, color = 0, icon = ''): Topic {
+    const topic: Topic = { id: `c-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 4)}`, label: label.trim().slice(0, 40), emoji: emoji.trim() || '📚', color, custom: true, ...(icon ? { icon } : {}) }
     state.value.topics.push(topic)
     save()
     return topic
   }
 
   /** Sửa tên, emoji, màu. Chủ đề có sẵn được lưu dưới dạng ghi đè nên có thể sửa như chủ đề tự tạo. */
-  function updateTopic(id: string, patch: { label?: string; emoji?: string; color?: number }): () => void {
+  function updateTopic(id: string, patch: { label?: string; emoji?: string; color?: number; icon?: string }): () => void {
     const clean = {
       ...(patch.label?.trim() ? { label: patch.label.trim().slice(0, 40) } : {}),
       ...(patch.emoji?.trim() ? { emoji: patch.emoji.trim() } : {}),
       ...(patch.color !== undefined ? { color: patch.color } : {}),
+      // chuỗi rỗng = gỡ ảnh tự tải lên
+      ...(patch.icon !== undefined ? { icon: patch.icon } : {}),
     }
     const own = state.value.topics.find((t) => t.id === id)
-    const prevOwn = own ? { label: own.label, emoji: own.emoji, color: own.color } : undefined
+    const prevOwn = own ? { label: own.label, emoji: own.emoji, color: own.color, icon: own.icon } : undefined
     const prevOverride = state.value.topicOverrides[id] ? { ...state.value.topicOverrides[id] } : undefined
     if (own) Object.assign(own, clean)
     else state.value.topicOverrides[id] = { ...state.value.topicOverrides[id], ...clean }

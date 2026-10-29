@@ -61,7 +61,7 @@ const perTopic = computed(() =>
     <h2>By topic</h2>
     <div class="topics">
       <NuxtLink v-for="t in perTopic" :key="t.id" :to="{ path: '/learn', query: { t: t.id } }" class="trow">
-        <span class="em">{{ t.emoji }}</span>
+        <TopicIcon class="em" :emoji="t.emoji" :icon="t.icon" :size="26" />
         <span class="grow">
           <span class="line"><b>{{ t.label }}</b><span class="muted small">{{ t.done }}/{{ t.total }}</span></span>
           <span class="meter"><i :style="{ width: (t.total ? (t.done / t.total) * 100 : 0) + '%', background: TOPIC_COLORS[t.color ?? 0] }" /></span>

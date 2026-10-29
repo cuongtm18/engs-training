@@ -13,6 +13,8 @@ export interface Topic {
   id: string
   label: string
   emoji: string
+  /** Ảnh tự tải lên (data URL), ưu tiên hơn emoji khi có */
+  icon?: string
   /** Chỉ số màu trong TOPIC_COLORS */
   color?: number
   /** Chủ đề do người dùng tự tạo */

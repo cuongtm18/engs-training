@@ -17,6 +17,19 @@ const rows = computed(() =>
 )
 const totalDue = computed(() => rows.value.reduce((n, r) => n + r.due, 0))
 
+// --- grid / list view (remembered on this device) ---
+const VIEW_KEY = 'engs.topicsView'
+const view = useState<'grid' | 'list'>('topics-view', () => 'grid')
+onMounted(() => {
+  try {
+    if (localStorage.getItem(VIEW_KEY) === 'list') view.value = 'list'
+  } catch { /* ignore */ }
+})
+function setView(v: 'grid' | 'list') {
+  view.value = v
+  try { localStorage.setItem(VIEW_KEY, v) } catch { /* ignore */ }
+}
+
 // --- edit mode + topic sheet ---
 const editMode = ref(false)
 const sheetOpen = ref(false)
@@ -59,6 +72,14 @@ function open(t: Topic) {
   <header class="head">
     <h1 class="large-title">Topics</h1>
     <div class="row">
+      <div class="seg" role="group" aria-label="Layout">
+        <button :class="{ on: view === 'grid' }" aria-label="Grid view" :aria-pressed="view === 'grid'" @click="setView('grid')">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="6.5" height="6.5" rx="1.5" /><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5" /><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5" /><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5" /></svg>
+        </button>
+        <button :class="{ on: view === 'list' }" aria-label="List view" :aria-pressed="view === 'list'" @click="setView('list')">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
+        </button>
+      </div>
       <button class="text-btn" @click="editMode = !editMode">{{ editMode ? 'Done' : 'Edit' }}</button>
       <button class="icon-btn" aria-label="New topic" @click="openNew"><AppIcon name="plus" :size="20" /></button>
     </div>
@@ -72,7 +93,7 @@ function open(t: Topic) {
 
   <p v-if="editMode" class="muted hint">Tap a topic to edit or remove it.</p>
 
-  <section class="grid">
+  <section class="grid" :class="{ list: view === 'list' }">
     <div v-for="t in rows" :key="t.id" class="tile" :class="{ wiggle: editMode }" :style="{ '--c': TOPIC_COLORS[t.color ?? 0] }">
       <button
         class="hit"
@@ -85,7 +106,7 @@ function open(t: Topic) {
         @click="open(t)"
       />
       <div class="top">
-        <span class="emoji">{{ t.emoji }}</span>
+        <TopicIcon class="emoji" :emoji="t.emoji" :icon="t.icon" :size="view === 'list' ? 32 : 40" />
         <span class="tr">
           <span v-if="t.due && !editMode" class="due">{{ t.due }} due</span>
           <span v-if="t.total" class="ring"><ProgressRing :value="t.done / t.total" :size="34" :stroke="4" :color="TOPIC_COLORS[t.color ?? 0]" /></span>
@@ -105,9 +126,9 @@ function open(t: Topic) {
 
     <div class="tile new">
       <button class="hit" aria-label="New topic" @click="openNew" />
-      <span class="plus"><AppIcon name="plus" :size="26" /></span>
-      <b>New topic</b>
-      <span class="meta">Then let AI write the first script</span>
+      <span class="plus"><AppIcon name="plus" :size="view === 'list' ? 20 : 26" /></span>
+      <span class="ntxt"><b>New topic</b>
+      <span class="meta">Then let AI write the first script</span></span>
     </div>
   </section>
 
@@ -133,7 +154,7 @@ function open(t: Topic) {
 
 .top, .foot { position: relative; display: flex; justify-content: space-between; pointer-events: none; }
 .top { align-items: center; height: 40px; }
-.emoji { width: 40px; height: 40px; margin-left: -4px; display: grid; place-items: center; font-size: 1.9rem; line-height: 1; }
+.emoji { margin-left: -4px; }
 .tr { display: flex; align-items: center; gap: 8px; }
 .ring { width: 34px; height: 34px; display: grid; place-items: center; }
 .ring :deep(svg) { display: block; }
@@ -151,9 +172,30 @@ function open(t: Topic) {
 .badge { position: absolute; top: -7px; left: -7px; z-index: 2; width: 26px; height: 26px; border-radius: 50%; background: var(--ink); color: var(--bg); display: grid; place-items: center; pointer-events: none; }
 
 .new { align-items: center; justify-content: center; gap: 4px; text-align: center; border: 2px dashed var(--line); background: transparent; box-shadow: none; }
-.new > b, .new > .meta, .new > .plus { position: relative; pointer-events: none; }
+.new > .ntxt, .new > .plus { position: relative; pointer-events: none; }
+.ntxt { display: flex; flex-direction: column; gap: 4px; align-items: center; }
 .new .meta { white-space: normal; }
 .plus { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; color: var(--accent); background: var(--soft); }
+
+.seg { display: flex; padding: 3px; margin-right: 6px; border-radius: 11px; background: var(--soft); }
+.seg button { appearance: none; border: 0; width: 38px; height: 34px; border-radius: 8px; background: none; color: var(--muted); display: grid; place-items: center; cursor: pointer; padding: 0; }
+.seg button.on { background: var(--card); color: var(--ink); box-shadow: 0 1px 3px rgba(0, 0, 0, .15); }
+
+/* List: compact single-column rows — icon, name + count on the left, due badge / ring / play on the right. */
+.grid.list { grid-template-columns: minmax(0, 1fr); grid-auto-rows: 64px; gap: 8px; }
+.list .tile { flex-direction: row; align-items: center; justify-content: flex-start; gap: 12px; padding: 0 12px; border-radius: 16px; }
+.list .top, .list .foot { display: contents; }
+.list .emoji { margin-left: 0; order: 0; }
+.list .txt { order: 1; flex: 1 1 auto; }
+.list .name { -webkit-line-clamp: 1; font-size: .98rem; }
+.list .tr { order: 2; position: relative; }
+.list .play { order: 3; position: relative; width: 34px; height: 34px; }
+.list .ring { width: 30px; height: 30px; }
+.list .badge { top: -6px; left: -6px; }
+.list .new { flex-direction: row; justify-content: center; gap: 10px; }
+.list .new .plus { width: 34px; height: 34px; }
+.list .new .ntxt { align-items: flex-start; gap: 0; text-align: left; }
+.list .new .meta { display: none; }
 
 .wiggle { animation: wiggle .28s infinite alternate ease-in-out; }
 .wiggle:nth-child(2n) { animation-delay: -.14s; }

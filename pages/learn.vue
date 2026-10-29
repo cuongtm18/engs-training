@@ -51,12 +51,12 @@ onBeforeUnmount(() => {
   <template v-if="topic">
     <header class="nav">
       <NuxtLink to="/" class="icon-btn" aria-label="Back to topics"><AppIcon name="chevron-left" :size="20" /></NuxtLink>
-      <span class="title">{{ topic.emoji }} {{ topic.label }}</span>
+      <span class="title row"><TopicIcon :emoji="topic.emoji" :icon="topic.icon" :size="22" /> {{ topic.label }}</span>
       <button class="icon-btn" aria-label="Edit topic" @click="editOpen = true"><AppIcon name="edit" :size="18" /></button>
     </header>
 
     <section class="hero" :style="{ '--c': color }">
-      <span class="em">{{ topic.emoji }}</span>
+      <TopicIcon :emoji="topic.emoji" :icon="topic.icon" :size="46" />
       <div class="grow">
         <b>{{ list.length }} {{ list.length === 1 ? 'sentence' : 'sentences' }}</b>
         <div class="muted small">Learn them here, then practice</div>

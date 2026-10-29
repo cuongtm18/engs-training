@@ -11,6 +11,9 @@ const topics = useTopics()
 
 const name = ref('')
 const emoji = ref('📚')
+const icon = ref('')
+const fileInput = ref<HTMLInputElement>()
+const uploadErr = ref('')
 const color = ref(0)
 const editing = computed(() => !!props.topic)
 
@@ -20,6 +23,8 @@ watch(
     if (!open) return
     name.value = props.topic?.label ?? ''
     emoji.value = props.topic?.emoji ?? '📚'
+    icon.value = props.topic?.icon ?? ''
+    uploadErr.value = ''
     color.value = props.topic?.color ?? Math.floor(Math.random() * TOPIC_COLORS.length)
   },
   { immediate: true },
@@ -31,14 +36,35 @@ function save() {
   const label = name.value.trim()
   if (!label) return
   if (props.topic) {
-    const changed = label !== props.topic.label || emoji.value !== props.topic.emoji || color.value !== props.topic.color
-    const restore = store.updateTopic(props.topic.id, { label, emoji: emoji.value, color: color.value })
+    const changed = label !== props.topic.label || emoji.value !== props.topic.emoji || color.value !== props.topic.color || icon.value !== (props.topic.icon ?? '')
+    const restore = store.updateTopic(props.topic.id, { label, emoji: emoji.value, color: color.value, icon: icon.value })
     if (changed) undo.push({ message: `Topic “${props.topic.label}” updated`, undo: restore })
-    emit('saved', { ...props.topic, label, emoji: emoji.value, color: color.value })
+    emit('saved', { ...props.topic, label, emoji: emoji.value, color: color.value, icon: icon.value || undefined })
   } else {
-    emit('saved', store.addTopic(label, emoji.value, color.value))
+    emit('saved', store.addTopic(label, emoji.value, color.value, icon.value))
   }
   close()
+}
+
+/** Thu nhỏ ảnh về 128px vuông (cắt giữa) để lưu gọn trong localStorage. */
+async function onFile(e: Event) {
+  const input = e.target as HTMLInputElement
+  const f = input.files?.[0]
+  input.value = ''
+  if (!f) return
+  uploadErr.value = ''
+  if (!f.type.startsWith('image/')) return (uploadErr.value = 'Please choose an image file.')
+  try {
+    const bmp = await createImageBitmap(f)
+    const size = 128
+    const side = Math.min(bmp.width, bmp.height)
+    const canvas = document.createElement('canvas')
+    canvas.width = canvas.height = size
+    canvas.getContext('2d')!.drawImage(bmp, (bmp.width - side) / 2, (bmp.height - side) / 2, side, side, 0, 0, size, size)
+    icon.value = canvas.toDataURL('image/webp', 0.85)
+  } catch {
+    uploadErr.value = 'Could not read that image.'
+  }
 }
 
 async function remove() {
@@ -61,7 +87,7 @@ async function remove() {
 <template>
   <AppSheet :model-value="modelValue" :title="editing ? 'Edit topic' : 'New topic'" @update:model-value="emit('update:modelValue', $event)">
     <div class="preview" :style="{ '--c': TOPIC_COLORS[color] }">
-      <span class="big">{{ emoji }}</span>
+      <TopicIcon :emoji="emoji" :icon="icon" :size="44" />
       <b>{{ name.trim() || 'Topic name' }}</b>
     </div>
 
@@ -71,8 +97,15 @@ async function remove() {
 
     <div class="lbl">Icon
       <div class="grid">
-        <button v-for="e in TOPIC_EMOJIS" :key="e" class="cell" :class="{ on: emoji === e }" @click="emoji = e">{{ e }}</button>
+        <button class="cell upload" :class="{ on: !!icon }" aria-label="Upload your own icon" @click="fileInput?.click()">
+          <img v-if="icon" :src="icon" alt="" />
+          <AppIcon v-else name="plus" :size="22" />
+        </button>
+        <button v-for="e in TOPIC_EMOJIS" :key="e" class="cell" :class="{ on: !icon && emoji === e }" @click="emoji = e; icon = ''">{{ e }}</button>
       </div>
+      <input ref="fileInput" type="file" accept="image/*" hidden @change="onFile" />
+      <span class="hint">{{ icon ? 'Using your uploaded image.' : 'Tap + to upload your own image.' }} <button v-if="icon" class="link" @click="icon = ''">Remove image</button></span>
+      <span v-if="uploadErr" class="err">{{ uploadErr }}</span>
     </div>
 
     <div class="lbl">Color
@@ -91,10 +124,14 @@ async function remove() {
 
 <style scoped>
 .preview { display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: 20px; background: color-mix(in srgb, var(--c) 16%, var(--card)); border: 1px solid color-mix(in srgb, var(--c) 35%, var(--line)); }
-.big { font-size: 2rem; }
 .lbl { display: flex; flex-direction: column; gap: 8px; font-weight: 700; font-size: .9rem; }
 .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
 .cell { appearance: none; border: 2px solid transparent; background: var(--card); border-radius: 14px; font-size: 1.4rem; padding: 8px 0; cursor: pointer; }
+.cell.upload { min-height: 48px; display: grid; place-items: center; color: var(--accent); padding: 0; }
+.cell.upload img { width: 100%; height: 100%; object-fit: cover; border-radius: 10px; }
+.hint { font-weight: 400; font-size: .82rem; color: var(--muted); }
+.link { appearance: none; border: 0; background: none; padding: 0; font: inherit; font-weight: 650; color: var(--accent); cursor: pointer; }
+.err { font-weight: 500; font-size: .82rem; color: var(--bad); }
 .cell.on { border-color: var(--accent); background: var(--soft); }
 .swatches { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); }
 .swatch-cell { appearance: none; border: 0; background: none; padding: 0; height: 44px; display: grid; place-items: center; cursor: pointer; }

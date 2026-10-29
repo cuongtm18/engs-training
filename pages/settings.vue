@@ -84,7 +84,7 @@ async function doReset() {
     <p class="cap">Removed topics</p>
     <section class="group">
       <div v-for="t in topics.hidden.value" :key="t.id" class="item">
-        <span class="em">{{ t.emoji }}</span>
+        <TopicIcon :emoji="t.emoji" :icon="t.icon" :size="28" />
         <span class="grow">{{ t.label }}</span>
         <button class="link" @click="restoreTopic(t.id, t.label)">Restore</button>
       </div>

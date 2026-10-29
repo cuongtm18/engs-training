@@ -173,7 +173,7 @@ const levelText = (n: number) => (n >= 90 ? 'Như người bản xứ' : n >= 70
     </header>
 
     <section class="card q">
-      <span class="crumb muted"><span class="ct">{{ topic ? topic.emoji + ' ' + topic.label : 'Review' }}</span><span class="cn">Sentence {{ index + 1 }}</span></span>
+      <span class="crumb muted"><span class="ct"><template v-if="topic"><TopicIcon :emoji="topic.emoji" :icon="topic.icon" :size="16" /> {{ topic.label }}</template><template v-else>Review</template></span><span class="cn">Sentence {{ index + 1 }}</span></span>
       <p class="vi" lang="vi">{{ current.vi }}</p>
 
       <textarea
