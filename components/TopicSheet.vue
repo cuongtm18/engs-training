@@ -67,6 +67,16 @@ async function onFile(e: Event) {
   }
 }
 
+/** Cho phép gõ/dán emoji bất kỳ, kể cả từ bàn phím emoji của hệ điều hành (iPhone, Android…); chỉ lấy ký tự đầu tiên. */
+function onEmojiInput(e: Event) {
+  const input = e.target as HTMLInputElement
+  const first = [...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(input.value.trim())][0]?.segment
+  input.value = ''
+  if (!first || !/\p{Extended_Pictographic}|\p{Regional_Indicator}|[0-9#*]\uFE0F?\u20E3/u.test(first)) return
+  emoji.value = first
+  icon.value = ''
+}
+
 async function remove() {
   const t = props.topic
   if (!t) return
@@ -103,6 +113,7 @@ async function remove() {
         </button>
         <button v-for="e in TOPIC_EMOJIS" :key="e" class="cell" :class="{ on: !icon && emoji === e }" @click="emoji = e; icon = ''">{{ e }}</button>
       </div>
+      <input class="emoji-in" inputmode="text" placeholder="😀  Tap here, then use your keyboard's emoji" aria-label="Type any emoji" autocomplete="off" @input="onEmojiInput" />
       <input ref="fileInput" type="file" accept="image/*" hidden @change="onFile" />
       <span class="hint">{{ icon ? 'Using your uploaded image.' : 'Tap + to upload your own image.' }} <button v-if="icon" class="link" @click="icon = ''">Remove image</button></span>
       <span v-if="uploadErr" class="err">{{ uploadErr }}</span>
@@ -125,7 +136,8 @@ async function remove() {
 <style scoped>
 .preview { display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: 20px; background: color-mix(in srgb, var(--c) 16%, var(--card)); border: 1px solid color-mix(in srgb, var(--c) 35%, var(--line)); }
 .lbl { display: flex; flex-direction: column; gap: 8px; font-weight: 700; font-size: .9rem; }
-.grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; max-height: 260px; overflow-y: auto; overscroll-behavior: contain; }
+.emoji-in { font-weight: 400; }
 .cell { appearance: none; border: 2px solid transparent; background: var(--card); border-radius: 14px; font-size: 1.4rem; padding: 8px 0; cursor: pointer; }
 .cell.upload { min-height: 48px; display: grid; place-items: center; color: var(--accent); padding: 0; }
 .cell.upload img { width: 100%; height: 100%; object-fit: cover; border-radius: 10px; }
