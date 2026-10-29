@@ -29,10 +29,14 @@ export interface CheckResult {
   engine: 'local' | 'gemini' | 'workers-ai' | 'offline'
 }
 
-export interface TranslateResult {
+export interface TranslatedLine {
+  vi: string
   en: string
-  alternatives: string[]
-  note: string
+}
+
+export interface TranslateResult {
+  /** Cùng thứ tự và số lượng với các dòng gửi lên; dòng dịch lỗi có vi/en rỗng */
+  items: TranslatedLine[]
   engine: 'gemini' | 'workers-ai'
 }
 

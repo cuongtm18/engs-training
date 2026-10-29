@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Sentence, TranslateResult } from '~/utils/types'
+import type { Sentence } from '~/utils/types'
 
 const route = useRoute()
 const store = useStore()
@@ -13,50 +13,95 @@ const list = computed(() => byTopic(topicId.value))
 const hideEn = ref(false)
 const revealed = reactive<Record<string, boolean>>({})
 
-// --- thêm câu ---
-const adding = ref(false)
-const vi = ref('')
-const en = ref('')
-const alts = ref<string[]>([])
-const note = ref('')
-const translating = ref(false)
-const err = ref('')
-const engine = ref<TranslateResult['engine'] | ''>('')
+// --- thêm nhiều câu một lúc ---
+interface Draft {
+  vi: string
+  en: string
+  dup: boolean
+}
 
-async function translate() {
-  const text = vi.value.trim()
-  if (!text || translating.value) return
+const CHUNK = 12
+const MAX_LINES = 100
+
+const adding = ref(false)
+const raw = ref('')
+const drafts = ref<Draft[]>([])
+const translating = ref(false)
+const progress = ref({ done: 0, total: 0 })
+const err = ref('')
+const info = ref('')
+const fileInput = ref<HTMLInputElement>()
+
+/** Mỗi dòng là một câu; bỏ dòng trống, bỏ số thứ tự hoặc gạch đầu dòng, bỏ dòng trùng nhau. */
+function parseLines(text: string): string[] {
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const line of text.split(/\r?\n/)) {
+    const l = line.replace(/^\s*(?:[-*•]|\d+[.)])\s+/, '').trim()
+    const k = normalize(l)
+    if (!l || seen.has(k)) continue
+    seen.add(k)
+    out.push(l.slice(0, 300))
+  }
+  return out
+}
+
+const lines = computed(() => parseLines(raw.value))
+
+async function onFile(e: Event) {
+  const f = (e.target as HTMLInputElement).files?.[0]
+  if (!f) return
+  raw.value = (raw.value ? raw.value.trimEnd() + '\n' : '') + (await f.text())
+  ;(e.target as HTMLInputElement).value = ''
+}
+
+async function translateAll() {
+  if (!lines.value.length || translating.value) return
+  err.value = info.value = ''
+  drafts.value = []
+  const src = lines.value.slice(0, MAX_LINES)
+  if (lines.value.length > MAX_LINES) info.value = `Chỉ dịch ${MAX_LINES} dòng đầu, hãy dán phần còn lại ở lần sau.`
   translating.value = true
-  err.value = ''
+  progress.value = { done: 0, total: src.length }
+  const existing = new Set(list.value.map((s) => normalize(s.en)))
+  const failed: string[] = []
+  let firstError = ''
   try {
-    const r = await api.translate(text)
-    en.value = r.en
-    alts.value = r.alternatives
-    note.value = r.note
-    engine.value = r.engine
-  } catch (e) {
-    err.value = errorDetail(e) + ' Bạn vẫn có thể tự gõ câu tiếng Anh rồi lưu.'
+    for (let i = 0; i < src.length; i += CHUNK) {
+      const chunk = src.slice(i, i + CHUNK)
+      try {
+        const r = await api.translate(chunk)
+        r.items.forEach((it, j) => {
+          if (it.vi && it.en) drafts.value.push({ vi: it.vi, en: it.en, dup: existing.has(normalize(it.en)) })
+          else failed.push(chunk[j]!)
+        })
+      } catch (e) {
+        failed.push(...chunk)
+        firstError ||= errorDetail(e)
+      }
+      progress.value.done = Math.min(src.length, i + CHUNK)
+    }
   } finally {
     translating.value = false
   }
+  // dòng dịch lỗi vẫn đưa vào danh sách để bạn tự điền nốt
+  for (const l of failed) drafts.value.push({ vi: /[\u00C0-\u1EF9]/.test(l) ? l : '', en: /[\u00C0-\u1EF9]/.test(l) ? '' : l, dup: false })
+  if (failed.length) err.value = `${failed.length} câu chưa dịch được${firstError ? ': ' + firstError : '.'} Các câu đó nằm đầu danh sách, bạn có thể tự điền hoặc bỏ đi.`
+  drafts.value.sort((a, b) => Number(!(b.vi && b.en)) - Number(!(a.vi && a.en)))
 }
 
-function reset() {
-  vi.value = en.value = note.value = err.value = ''
-  alts.value = []
-  engine.value = ''
+const ready = computed(() => drafts.value.filter((d) => d.vi.trim() && d.en.trim() && !d.dup))
+
+function resetAdd() {
+  raw.value = err.value = info.value = ''
+  drafts.value = []
 }
 
-function save() {
-  if (!vi.value.trim() || !en.value.trim()) return
-  store.addSentence({
-    t: topicId.value,
-    vi: vi.value.trim(),
-    en: en.value.trim(),
-    alt: alts.value.filter(Boolean),
-    note: note.value.trim() || undefined,
-  })
-  reset()
+function saveAll() {
+  if (!ready.value.length) return
+  store.addSentences(ready.value.map((d) => ({ t: topicId.value, vi: d.vi.trim(), en: d.en.trim() })))
+  resetAdd()
+  adding.value = false
 }
 
 function remove(s: Sentence) {
@@ -91,31 +136,39 @@ onBeforeUnmount(() => {
     </div>
 
     <section class="card add">
-      <button v-if="!adding" class="btn block" @click="adding = true">＋ Thêm câu của bạn</button>
+      <button v-if="!adding" class="btn block" @click="adding = true">＋ Thêm nhiều câu</button>
       <template v-else>
-        <h2>Thêm câu mới</h2>
-        <textarea v-model="vi" rows="2" placeholder="Gõ câu tiếng Việt bạn muốn học…" @keydown.enter.exact.prevent="translate" />
-        <button class="btn primary block" :disabled="!vi.trim() || translating" @click="translate">
-          {{ translating ? 'Đang dịch…' : '🌐 Dịch sang tiếng Anh' }}
+        <h2>Thêm nhiều câu một lúc</h2>
+        <p class="muted small hint">Dán danh sách, <b>mỗi dòng một câu</b>. Dòng tiếng Anh sẽ được dịch sang tiếng Việt, dòng tiếng Việt thì dịch sang tiếng Anh.</p>
+        <textarea v-model="raw" rows="7" placeholder="Excuse me, could you help me, please?&#10;Where is the train station?&#10;Go straight for two blocks." :disabled="translating" />
+        <div class="row wrap">
+          <button class="btn ghost" :disabled="translating" @click="fileInput?.click()">📄 Chọn file .txt</button>
+          <span class="muted small grow">{{ lines.length }} câu</span>
+          <input ref="fileInput" type="file" accept=".txt,text/plain" hidden @change="onFile" />
+        </div>
+        <button class="btn primary block" :disabled="!lines.length || translating" @click="translateAll">
+          {{ translating ? `Đang dịch… ${progress.done}/${progress.total}` : `🌐 Dịch ${Math.min(lines.length, MAX_LINES)} câu` }}
         </button>
+        <p v-if="info" class="muted small">{{ info }}</p>
         <p v-if="err" class="err">{{ err }}</p>
 
-        <template v-if="en || engine || err">
-          <label class="lbl">Tiếng Anh (bạn có thể sửa)</label>
-          <textarea v-model="en" rows="2" placeholder="Câu tiếng Anh…" />
-          <div v-if="alts.length" class="alts-edit">
-            <div class="muted small">Các cách nói khác</div>
-            <div v-for="(a, i) in alts" :key="i" class="row alt">
-              <input v-model="alts[i]" />
-              <button class="btn ghost" aria-label="Bỏ" @click="alts.splice(i, 1)">✕</button>
+        <template v-if="drafts.length">
+          <h2 class="rv">Kiểm tra lại rồi lưu ({{ ready.length }}/{{ drafts.length }} câu)</h2>
+          <div v-for="(d, i) in drafts" :key="i" class="draft" :class="{ dup: d.dup, miss: !(d.vi && d.en) }">
+            <textarea v-model="d.vi" rows="2" placeholder="Tiếng Việt…" />
+            <textarea v-model="d.en" rows="2" placeholder="Tiếng Anh…" />
+            <div class="row between">
+              <span v-if="d.dup" class="tag">Đã có trong chủ đề, sẽ bỏ qua</span>
+              <span v-else-if="!(d.vi && d.en)" class="tag warn">Cần điền đủ hai ô</span>
+              <span v-else />
+              <button class="btn ghost" @click="drafts.splice(i, 1)">Bỏ câu này</button>
             </div>
           </div>
-          <p v-if="note" class="note">💡 {{ note }}</p>
         </template>
 
         <div class="row">
-          <button class="btn ghost" @click="reset(); adding = false">Hủy</button>
-          <button class="btn primary grow" :disabled="!vi.trim() || !en.trim()" @click="save(); adding = false">Lưu vào "{{ topic.label }}"</button>
+          <button class="btn ghost" :disabled="translating" @click="resetAdd(); adding = false">Đóng</button>
+          <button class="btn primary grow" :disabled="!ready.length || translating" @click="saveAll">Lưu {{ ready.length }} câu vào "{{ topic.label }}"</button>
         </div>
       </template>
     </section>
@@ -155,11 +208,16 @@ onBeforeUnmount(() => {
 .check { display: flex; gap: 6px; align-items: center; cursor: pointer; }
 .check input { width: auto; }
 .add { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
-.lbl { font-weight: 600; margin-top: 4px; }
 .err { color: var(--bad); margin: 0; }
 .small { font-size: .85rem; }
-.alt input { flex: 1; }
-.alts-edit { display: flex; flex-direction: column; gap: 6px; }
+.hint { margin: 0; }
+.rv { margin: 6px 0 0; }
+.draft { display: flex; flex-direction: column; gap: 6px; padding: 10px; border: 1px solid var(--line); border-radius: 14px; }
+.draft.dup { opacity: .55; }
+.draft.miss { border-color: var(--warn); }
+.between { justify-content: space-between; }
+.tag { font-size: .75rem; padding: 2px 8px; border-radius: 99px; background: var(--soft); }
+.tag.warn { background: var(--warn-bg); color: var(--warn); }
 .empty { text-align: center; }
 .list { display: flex; flex-direction: column; gap: 10px; }
 .item { display: flex; flex-direction: column; gap: 8px; padding: 14px; }

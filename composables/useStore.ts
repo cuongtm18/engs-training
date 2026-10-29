@@ -90,11 +90,12 @@ export function useStore() {
 
   const learned = computed(() => Object.values(state.value.cards).filter((c) => c.box >= 3).length)
 
-  function addSentence(s: Omit<Sentence, 'id' | 'custom'>): Sentence {
-    const item: Sentence = { ...s, id: `u-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`, custom: true }
-    state.value.custom.unshift(item)
+  function addSentences(items: Omit<Sentence, 'id' | 'custom'>[]) {
+    const stamp = Date.now().toString(36)
+    const added = items.map((s, i): Sentence => ({ ...s, id: `u-${stamp}${i.toString(36)}${Math.random().toString(36).slice(2, 5)}`, custom: true }))
+    state.value.custom.unshift(...added)
     save()
-    return item
+    return added
   }
 
   function removeSentence(id: string) {
@@ -124,5 +125,5 @@ export function useStore() {
     save()
   }
 
-  return { state, grade, today, streak, learned, addSentence, removeSentence, setSettings, reset, save, exportJson, importJson }
+  return { state, grade, today, streak, learned, addSentences, removeSentence, setSettings, reset, save, exportJson, importJson }
 }

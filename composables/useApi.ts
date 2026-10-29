@@ -21,7 +21,8 @@ export function useApi() {
         body: { vi: s.vi, answer, reference: s.en, alternatives: s.alt ?? [] },
         timeout: 25_000,
       }),
-    translate: (text: string) =>
-      $fetch<TranslateResult>('/api/translate', { method: 'POST', headers: headers(), body: { text }, timeout: 25_000 }),
+    /** Dịch tối đa 20 dòng một lần (mỗi dòng có thể là tiếng Anh hoặc tiếng Việt). */
+    translate: (lines: string[]) =>
+      $fetch<TranslateResult>('/api/translate', { method: 'POST', headers: headers(), body: { lines }, timeout: 60_000 }),
   }
 }

@@ -6,7 +6,7 @@ PWA luyện phản xạ dịch **Việt → Anh** qua tình huống hằng ngày
 - Mỗi chủ đề có 2 chế độ: **📖 Học** (xem câu Việt + đáp án + cách nói khác, nghe phát âm, ẩn tiếng Anh để tự kiểm tra, tự thêm câu và AI dịch) và **✍️ Luyện tập** (nhìn câu Việt, gõ câu Anh)
 - Chấm 2 bước: (1) đúng cấu trúc và đủ ý chưa, (2) nếu đúng cấu trúc mới chấm **% độ tự nhiên**. Không bắt phải giống đáp án mẫu: AI chấp nhận mọi cách dịch đúng nghĩa; nếu khớp câu mẫu thì chấm ngay, không tốn lượt AI
 - 181 câu mẫu trong `data/sentences.json`, câu bạn tự thêm lưu trên máy (chủ đề "Câu của tôi" hoặc bất kỳ chủ đề nào)
-- `/api/check` (chấm) và `/api/translate` (dịch câu tự thêm): **Gemini** (free, tự chọn model dùng được) → dự phòng **Cloudflare Workers AI**; nếu không có AI thì app ước lượng offline
+- `/api/check` (chấm) và `/api/translate` (dịch danh sách câu tự thêm): **Gemini** (free, tự chọn model dùng được) → dự phòng **Cloudflare Workers AI**; nếu không có AI thì app ước lượng offline
 - Ôn tập ngắt quãng kiểu Leitner, streak; tiến độ lưu trên máy (localStorage), có xuất/nhập JSON
 
 ## Chạy local
@@ -31,7 +31,7 @@ Biến tùy chọn: `GEMINI_MODEL` (mặc định `gemini-2.5-flash`), `WORKERS_
 
 ## Thêm câu mới
 
-- Trong app: vào **📖 Học** của một chủ đề → **＋ Thêm câu của bạn**, gõ câu tiếng Việt, bấm dịch rồi lưu.
+- Trong app: vào **📖 Học** của một chủ đề → **＋ Thêm nhiều câu**, dán danh sách (mỗi dòng một câu, tiếng Anh hoặc tiếng Việt, hoặc chọn file `.txt`), bấm dịch, kiểm tra lại rồi lưu. Dòng tiếng Anh được dịch sang tiếng Việt và ngược lại.
 - Trong code: thêm vào `data/sentences.json`:
 
 ```json

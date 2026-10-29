@@ -100,7 +100,7 @@ async function viaGemini(env: AiEnv, system: string, prompt: string, schema: Jso
   throw new Error(`gemini: ${errors.join(', ') || 'không có model nào dùng được với key này'}${hint}`)
 }
 
-async function viaWorkersAi(env: AiEnv, system: string, prompt: string, schema: JsonSchema, temperature: number) {
+async function viaWorkersAi(env: AiEnv, system: string, prompt: string, schema: JsonSchema, temperature: number, maxTokens: number) {
   const model = env.WORKERS_AI_MODEL || '@cf/meta/llama-3.1-8b-instruct'
   const out = await env.AI!.run(model, {
     messages: [
@@ -108,7 +108,7 @@ async function viaWorkersAi(env: AiEnv, system: string, prompt: string, schema: 
       { role: 'user', content: prompt },
     ],
     temperature,
-    max_tokens: 500,
+    max_tokens: maxTokens,
     response_format: { type: 'json_schema', json_schema: schema },
   })
   const obj = extractJson(out?.response ?? out)
@@ -122,9 +122,9 @@ async function viaWorkersAi(env: AiEnv, system: string, prompt: string, schema: 
  */
 export async function aiJson<T>(
   env: AiEnv,
-  opts: { system: string; prompt: string; schema: JsonSchema; temperature?: number; parse: (raw: any) => T | null },
+  opts: { system: string; prompt: string; schema: JsonSchema; temperature?: number; maxTokens?: number; parse: (raw: any) => T | null },
 ): Promise<{ data: T; engine: Engine }> {
-  const { system, prompt, schema, temperature = 0.2, parse } = opts
+  const { system, prompt, schema, temperature = 0.2, maxTokens = 500, parse } = opts
   const errors: string[] = []
 
   if (env.GEMINI_API_KEY) {
@@ -138,7 +138,7 @@ export async function aiJson<T>(
   }
   if (env.AI) {
     try {
-      const data = parse(await viaWorkersAi(env, system, prompt, schema, temperature))
+      const data = parse(await viaWorkersAi(env, system, prompt, schema, temperature, maxTokens))
       if (data) return { data, engine: 'workers-ai' }
       errors.push('workers-ai: kết quả không đúng định dạng')
     } catch (e) {

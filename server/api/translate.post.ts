@@ -1,41 +1,57 @@
-import type { TranslateResult } from '~/utils/types'
+import type { TranslatedLine, TranslateResult } from '~/utils/types'
 
-const SYSTEM = `Bạn là người bản xứ nói tiếng Anh, giúp người Việt học tiếng Anh giao tiếp hằng ngày.
-Dịch câu tiếng Việt người dùng đưa sang tiếng Anh TỰ NHIÊN, đúng cách người bản xứ nói trong hội thoại đời thường (không dịch sát từng chữ).
+const MAX_LINES = 20
 
-en: bản dịch tự nhiên nhất.
-alternatives: tối đa 3 cách nói khác cũng tự nhiên (có thể để mảng rỗng).
-note: tối đa 1 câu tiếng Việt về điểm đáng chú ý (cụm từ hay, khác biệt Anh-Mỹ, lưu ý ngữ pháp). Để chuỗi rỗng nếu không cần.
+const SYSTEM = `Bạn giúp người Việt học tiếng Anh giao tiếp hằng ngày. Bạn nhận một danh sách câu được đánh số, mỗi dòng có thể là tiếng Anh hoặc tiếng Việt.
+
+Với mỗi dòng, trả về một phần tử gồm i (số thứ tự của dòng), vi, en:
+- Nếu dòng là tiếng Anh: en = câu gốc (chỉ sửa lỗi chính tả hoặc viết hoa rõ ràng, giữ nguyên ý), vi = bản dịch tiếng Việt tự nhiên, đúng ngữ cảnh hội thoại.
+- Nếu dòng là tiếng Việt: vi = câu gốc, en = bản dịch tiếng Anh TỰ NHIÊN như người bản xứ nói trong đời thường (không dịch sát từng chữ).
+- Giữ nguyên số lượng và thứ tự: mỗi dòng đầu vào đúng một phần tử đầu ra.
 
 Chỉ trả về JSON đúng schema, không thêm chữ nào khác.`
 
 const SCHEMA = {
   type: 'object',
   properties: {
-    en: { type: 'string' },
-    alternatives: { type: 'array', items: { type: 'string' } },
-    note: { type: 'string' },
+    items: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: { i: { type: 'integer' }, vi: { type: 'string' }, en: { type: 'string' } },
+        required: ['i', 'vi', 'en'],
+      },
+    },
   },
-  required: ['en', 'alternatives', 'note'],
+  required: ['items'],
 } as const
-
-function parse(obj: any): Omit<TranslateResult, 'engine'> | null {
-  const en = String(obj?.en ?? '').trim()
-  if (!en) return null
-  const alternatives = Array.isArray(obj.alternatives)
-    ? obj.alternatives.map((s: unknown) => String(s).trim()).filter((s: string) => s && s !== en).slice(0, 3)
-    : []
-  return { en: en.slice(0, 400), alternatives, note: String(obj.note ?? '').trim().slice(0, 300) }
-}
 
 export default defineEventHandler(async (event) => {
   const env = getEnv(event)
   assertAccess(event, env)
 
-  const body = await readBody<{ text?: string }>(event)
-  const text = String(body?.text ?? '').trim()
-  if (!text || text.length > 300) throw badRequest()
+  const body = await readBody<{ lines?: unknown }>(event)
+  const lines = Array.isArray(body?.lines) ? body.lines.map((l) => String(l).trim()).filter(Boolean) : []
+  if (!lines.length || lines.length > MAX_LINES || lines.some((l) => l.length > 300)) throw badRequest(`Mỗi lần dịch tối đa ${MAX_LINES} dòng, mỗi dòng tối đa 300 ký tự.`)
 
-  const { data, engine } = await aiJson(env, { system: SYSTEM, prompt: `Câu tiếng Việt: ${text}`, schema: SCHEMA, temperature: 0.3, parse })
-  return { ...data, engine } satisfies TranslateResult
+  const parse = (obj: any): TranslatedLine[] | null => {
+    if (!Array.isArray(obj?.items)) return null
+    const out: TranslatedLine[] = lines.map(() => ({ vi: '', en: '' }))
+    let hit = 0
+    obj.items.forEach((it: any, pos: number) => {
+      // ưu tiên số thứ tự mô hình trả về, nếu thiếu thì dùng vị trí
+      const idx = Number.isInteger(it?.i) ? it.i - 1 : pos
+      const vi = String(it?.vi ?? '').trim().slice(0, 400)
+      const en = String(it?.en ?? '').trim().slice(0, 400)
+      if (idx >= 0 && idx < lines.length && vi && en && !out[idx]!.en) {
+        out[idx] = { vi, en }
+        hit++
+      }
+    })
+    return hit ? out : null
+  }
+
+  const prompt = lines.map((l, i) => `${i + 1}. ${l}`).join('\n')
+  const { data, engine } = await aiJson(env, { system: SYSTEM, prompt, schema: SCHEMA, temperature: 0.2, maxTokens: 2500, parse })
+  return { items: data, engine } satisfies TranslateResult
 })
