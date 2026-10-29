@@ -6,8 +6,8 @@ const store = useStore()
 const router = useRouter()
 
 const all = sentences as Sentence[]
-const topics = ref<string[]>(TOPICS.map((t) => t.id))
-const levels = ref<number[]>([1, 2, 3])
+const topics = ref<string[]>([])
+const levels = ref<number[]>([])
 
 function toggleTopic(id: string) {
   topics.value = topics.value.includes(id) ? topics.value.filter((x) => x !== id) : [...topics.value, id]
@@ -63,7 +63,7 @@ function start() {
 
   <p class="muted info">
     <template v-if="pool.length">{{ dueCount }} câu cần ôn · {{ newCount }} câu mới</template>
-    <template v-else>Hãy chọn ít nhất một chủ đề và một mức độ.</template>
+    <template v-else>Hãy chọn chủ đề và độ khó bạn muốn luyện.</template>
   </p>
 
   <button class="btn primary block" :disabled="!pool.length" @click="start">Bắt đầu luyện ({{ store.state.value.settings.sessionSize }} câu)</button>
