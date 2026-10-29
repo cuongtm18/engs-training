@@ -10,7 +10,6 @@ const api = useApi()
 interface Draft {
   vi: string
   en: string
-  dup: boolean
 }
 
 const CHUNK = 12
@@ -44,7 +43,20 @@ function parseLines(text: string): string[] {
 }
 
 const lines = computed(() => parseLines(raw.value))
-const ready = computed(() => drafts.value.filter((d) => d.vi.trim() && d.en.trim() && !d.dup))
+/** Per draft: 'topic' if already saved in this topic, 'batch' if an earlier draft has the same English. Case-insensitive, live while editing. */
+const dupKind = computed<(null | 'topic' | 'batch')[]>(() => {
+  const known = have()
+  const seen = new Set<string>()
+  return drafts.value.map((d) => {
+    const k = normalize(d.en)
+    if (!k) return null
+    if (known.has(k)) return 'topic'
+    if (seen.has(k)) return 'batch'
+    seen.add(k)
+    return null
+  })
+})
+const ready = computed(() => drafts.value.filter((d, i) => d.vi.trim() && d.en.trim() && !dupKind.value[i]))
 const noun = (n: number) => (n === 1 ? 'sentence' : 'sentences')
 
 function reset() {
@@ -76,7 +88,6 @@ async function translateAll() {
   if (lines.value.length > MAX_LINES) info.value = `Only the first ${MAX_LINES} lines are translated; paste the rest next time.`
   busy.value = true
   progress.value = { done: 0, total: src.length }
-  const known = have()
   const failed: string[] = []
   let firstError = ''
   try {
@@ -85,7 +96,7 @@ async function translateAll() {
       try {
         const r = await api.translate(chunk)
         r.items.forEach((it, j) => {
-          if (it.vi && it.en) drafts.value.push({ vi: it.vi, en: it.en, dup: known.has(normalize(it.en)) })
+          if (it.vi && it.en) drafts.value.push({ vi: it.vi, en: it.en })
           else failed.push(chunk[j]!)
         })
       } catch (e) {
@@ -100,7 +111,7 @@ async function translateAll() {
   // lines that failed stay in the list so you can fill them in by hand
   for (const l of failed) {
     const isVi = /[À-ỹ]/.test(l)
-    drafts.value.push({ vi: isVi ? l : '', en: isVi ? '' : l, dup: false })
+    drafts.value.push({ vi: isVi ? l : '', en: isVi ? '' : l })
   }
   if (failed.length) err.value = `${failed.length} line(s) could not be translated${firstError ? ': ' + firstError : '.'} They are at the top of the list: fill them in or remove them.`
   drafts.value.sort((a, b) => Number(!(b.vi && b.en)) - Number(!(a.vi && a.en)))
@@ -113,8 +124,7 @@ async function generate() {
   busy.value = true
   try {
     const r = await api.generate(props.topic.label, situation.value, count.value, props.existing.slice(0, 40).map((s) => s.en))
-    const known = have()
-    drafts.value = r.items.map((it) => ({ vi: it.vi, en: it.en, dup: known.has(normalize(it.en)) }))
+    drafts.value = r.items.map((it) => ({ vi: it.vi, en: it.en }))
   } catch (e) {
     err.value = errorDetail(e)
   } finally {
@@ -171,11 +181,11 @@ function saveAll() {
 
     <template v-if="drafts.length">
       <h2 class="rv">Review ({{ ready.length }} of {{ drafts.length }} will be saved)</h2>
-      <div v-for="(d, i) in drafts" :key="i" class="draft" :class="{ dup: d.dup, miss: !(d.vi && d.en) }">
+      <div v-for="(d, i) in drafts" :key="i" class="draft" :class="{ dup: dupKind[i], miss: !(d.vi && d.en) }">
         <textarea v-model="d.en" rows="2" placeholder="English…" />
         <textarea v-model="d.vi" rows="2" lang="vi" placeholder="Vietnamese…" />
         <div class="row between">
-          <span v-if="d.dup" class="tag">Already in this topic, skipped</span>
+          <span v-if="dupKind[i]" class="tag warn">⚠️ {{ dupKind[i] === 'topic' ? 'Already in this topic' : 'Duplicate of another line above' }}, will be skipped</span>
           <span v-else-if="!(d.vi && d.en)" class="tag warn">Fill in both fields</span>
           <span v-else />
           <button class="btn ghost small-btn" @click="drafts.splice(i, 1)">Remove</button>
@@ -194,7 +204,8 @@ function saveAll() {
 .err { color: var(--bad); margin: 0; word-break: break-word; }
 .rv { margin: 6px 0 0; }
 .draft { display: flex; flex-direction: column; gap: 6px; padding: 10px; background: var(--card); border: 1px solid var(--line); border-radius: 18px; }
-.draft.dup { opacity: .55; }
+.draft.dup { border-color: var(--warn); background: var(--warn-bg); }
+.draft.dup textarea { opacity: .6; }
 .draft.miss { border-color: var(--warn); }
 .between { justify-content: space-between; }
 .tag { font-size: .75rem; padding: 2px 8px; border-radius: 99px; background: var(--soft); }
