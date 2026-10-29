@@ -14,6 +14,7 @@ const emoji = ref('📚')
 const icon = ref('')
 const fileInput = ref<HTMLInputElement>()
 const uploadErr = ref('')
+const pickerOpen = ref(false)
 const color = ref(0)
 const editing = computed(() => !!props.topic)
 
@@ -25,6 +26,7 @@ watch(
     emoji.value = props.topic?.emoji ?? '📚'
     icon.value = props.topic?.icon ?? ''
     uploadErr.value = ''
+    pickerOpen.value = false
     color.value = props.topic?.color ?? Math.floor(Math.random() * TOPIC_COLORS.length)
   },
   { immediate: true },
@@ -62,12 +64,17 @@ async function onFile(e: Event) {
     canvas.width = canvas.height = size
     canvas.getContext('2d')!.drawImage(bmp, (bmp.width - side) / 2, (bmp.height - side) / 2, side, side, 0, 0, size, size)
     icon.value = canvas.toDataURL('image/webp', 0.85)
+    pickerOpen.value = false
   } catch {
     uploadErr.value = 'Could not read that image.'
   }
 }
 
-const palette = computed(() => (TOPIC_EMOJIS.includes(emoji.value) ? TOPIC_EMOJIS : [emoji.value, ...TOPIC_EMOJIS]))
+function pick(e: string) {
+  emoji.value = e
+  icon.value = ''
+  pickerOpen.value = false
+}
 
 /** Cho phép gõ/dán emoji bất kỳ, kể cả từ bàn phím emoji của hệ điều hành (iPhone, Android…); lấy emoji vừa nhập cuối cùng. */
 const EMOJI_RE = /\p{Extended_Pictographic}|\p{Regional_Indicator}|[0-9#*]\uFE0F?\u20E3/u
@@ -76,12 +83,8 @@ function onEmojiInput(e: Event) {
   if ((e as InputEvent).isComposing) return
   const chars = typeof Intl.Segmenter === 'function' ? [...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(input.value)].map((x) => x.segment) : [...input.value]
   const picked = chars.filter((c) => EMOJI_RE.test(c)).pop()
-  if (picked) {
-    emoji.value = picked
-    icon.value = ''
-  }
-  // luôn hiện emoji đang chọn trong ô để thấy ngay kết quả
-  input.value = icon.value ? '' : emoji.value
+  input.value = ''
+  if (picked) pick(picked)
 }
 
 async function remove() {
@@ -113,17 +116,11 @@ async function remove() {
     </label>
 
     <div class="lbl">Icon
-      <div class="grid">
-        <button class="cell upload" :class="{ on: !!icon }" aria-label="Upload your own icon" @click="fileInput?.click()">
-          <img v-if="icon" :src="icon" alt="" />
-          <AppIcon v-else name="plus" :size="22" />
-        </button>
-        <button v-for="e in palette" :key="e" class="cell" :class="{ on: !icon && emoji === e }" @click="emoji = e; icon = ''">{{ e }}</button>
-      </div>
-      <input class="emoji-in" :value="icon ? '' : emoji" placeholder="😀  Tap here, then use your keyboard's emoji" aria-label="Type any emoji" autocomplete="off" @input="onEmojiInput" />
-      <input ref="fileInput" type="file" accept="image/*" hidden @change="onFile" />
-      <span class="hint">{{ icon ? 'Using your uploaded image.' : 'Tap + to upload your own image.' }} <button v-if="icon" class="link" @click="icon = ''">Remove image</button></span>
-      <span v-if="uploadErr" class="err">{{ uploadErr }}</span>
+      <button class="icon-pick" @click="pickerOpen = true">
+        <TopicIcon :emoji="emoji" :icon="icon" :size="34" />
+        <span class="grow">Change icon</span>
+        <AppIcon name="chevron-left" :size="16" class="chev" />
+      </button>
     </div>
 
     <div class="lbl">Color
@@ -133,6 +130,28 @@ async function remove() {
     </div>
 
     <button v-if="editing" class="btn danger" @click="remove">{{ topic?.custom ? 'Delete topic' : 'Remove topic' }}</button>
+
+    <Teleport to="body">
+      <Transition name="pop">
+        <div v-if="pickerOpen && modelValue" class="pop-root" role="dialog" aria-modal="true" aria-label="Choose icon">
+          <div class="pop-bg" @click="pickerOpen = false" />
+          <div class="pop">
+            <div class="pop-head">
+              <b>Choose icon</b>
+              <button class="x" aria-label="Close" @click="pickerOpen = false"><AppIcon name="x" :size="16" /></button>
+            </div>
+            <div class="grid">
+              <button v-for="e in TOPIC_EMOJIS" :key="e" class="cell" :class="{ on: !icon && emoji === e }" @click="pick(e)">{{ e }}</button>
+            </div>
+            <input class="emoji-in" placeholder="😀  Or tap here and use your keyboard's emoji" aria-label="Type any emoji" autocomplete="off" @input="onEmojiInput" />
+            <button class="btn block" @click="fileInput?.click()"><AppIcon name="plus" :size="18" /> Upload your own image</button>
+            <span v-if="uploadErr" class="err">{{ uploadErr }}</span>
+            <button v-if="icon" class="link" @click="icon = ''; pickerOpen = false">Remove uploaded image</button>
+            <input ref="fileInput" type="file" accept="image/*" hidden @change="onFile" />
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
 
     <template #footer>
       <button class="btn primary block" :disabled="!name.trim()" @click="save">{{ editing ? 'Save' : 'Create topic' }}</button>
@@ -145,10 +164,19 @@ async function remove() {
 .lbl { display: flex; flex-direction: column; gap: 8px; font-weight: 700; font-size: .9rem; }
 .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; max-height: 260px; overflow-y: auto; overscroll-behavior: contain; }
 .emoji-in { font-weight: 400; }
+.icon-pick { appearance: none; display: flex; align-items: center; gap: 12px; width: 100%; min-height: 52px; padding: 8px 14px; border-radius: 16px; border: 1px solid var(--line); background: var(--card); color: var(--ink); font: inherit; font-weight: 600; text-align: left; cursor: pointer; }
+.chev { transform: rotate(180deg); color: var(--muted); }
+.pop-root { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 16px; }
+.pop-bg { position: absolute; inset: 0; background: rgba(20, 12, 4, .45); }
+.pop { position: relative; width: 100%; max-width: 380px; max-height: 86dvh; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding: 16px; border-radius: 24px; background: var(--bg); box-shadow: 0 20px 50px rgba(0, 0, 0, .35); }
+.pop-head { display: flex; align-items: center; justify-content: space-between; }
+.pop-head .x { appearance: none; border: 0; width: 36px; height: 36px; border-radius: 50%; background: var(--soft); color: var(--ink); display: grid; place-items: center; cursor: pointer; padding: 0; }
+.pop .grid { max-height: 240px; }
+.pop-enter-active, .pop-leave-active { transition: opacity .18s; }
+.pop-enter-active .pop, .pop-leave-active .pop { transition: transform .2s; }
+.pop-enter-from, .pop-leave-to { opacity: 0; }
+.pop-enter-from .pop, .pop-leave-to .pop { transform: scale(.94); }
 .cell { appearance: none; border: 2px solid transparent; background: var(--card); border-radius: 14px; font-size: 1.4rem; padding: 8px 0; cursor: pointer; }
-.cell.upload { min-height: 48px; display: grid; place-items: center; color: var(--accent); padding: 0; }
-.cell.upload img { width: 100%; height: 100%; object-fit: cover; border-radius: 10px; }
-.hint { font-weight: 400; font-size: .82rem; color: var(--muted); }
 .link { appearance: none; border: 0; background: none; padding: 0; font: inherit; font-weight: 650; color: var(--accent); cursor: pointer; }
 .err { font-weight: 500; font-size: .82rem; color: var(--bad); }
 .cell.on { border-color: var(--accent); background: var(--soft); }
