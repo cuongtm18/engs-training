@@ -1,6 +1,11 @@
 <script setup lang="ts">
 const route = useRoute()
 const showTabs = computed(() => ['/', '/progress', '/settings'].includes(route.path))
+
+// Hoàn tác khi xóa chữ trong ô nhập + phím tắt Ctrl/Cmd+Z
+let stopTextUndo: (() => void) | undefined
+onMounted(() => (stopTextUndo = installTextUndo()))
+onBeforeUnmount(() => stopTextUndo?.())
 </script>
 
 <template>
@@ -9,6 +14,7 @@ const showTabs = computed(() => ['/', '/progress', '/settings'].includes(route.p
   </div>
   <TabBar v-if="showTabs" />
   <ConfirmHost />
+  <UndoHost />
 </template>
 
 <style>

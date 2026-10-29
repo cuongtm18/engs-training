@@ -2,6 +2,7 @@
 const store = useStore()
 const topics = useTopics()
 const confirm = useConfirm()
+const undo = useUndo()
 const s = computed(() => store.state.value.settings)
 const msg = ref('')
 const fileInput = ref<HTMLInputElement>()
@@ -24,18 +25,25 @@ async function doImport(e: Event) {
   const f = (e.target as HTMLInputElement).files?.[0]
   if (!f) return
   try {
-    store.importJson(await f.text())
-    msg.value = 'Progress imported.'
+    const restore = store.importJson(await f.text())
+    undo.push({ message: 'Progress imported', undo: restore, duration: 10000 })
+    msg.value = ''
   } catch {
     msg.value = 'That file is not valid.'
   }
 }
 
+function restoreTopic(id: string, label: string) {
+  const hideAgain = store.unhideTopic(id)
+  undo.push({ message: `Topic “${label}” restored`, undo: hideAgain })
+}
+
 async function doReset() {
   const ok = await confirm.ask({ title: 'Reset everything?', message: 'This deletes all progress, your own topics and your own sentences. It cannot be undone.', confirmText: 'Reset everything' })
   if (ok) {
-    store.reset()
-    msg.value = 'Everything has been reset.'
+    const restore = store.reset()
+    undo.push({ message: 'Everything was reset', undo: restore, duration: 10000 })
+    msg.value = ''
   }
 }
 </script>
@@ -78,7 +86,7 @@ async function doReset() {
       <div v-for="t in topics.hidden.value" :key="t.id" class="item">
         <span class="em">{{ t.emoji }}</span>
         <span class="grow">{{ t.label }}</span>
-        <button class="link" @click="store.unhideTopic(t.id)">Restore</button>
+        <button class="link" @click="restoreTopic(t.id, t.label)">Restore</button>
       </div>
     </section>
   </template>

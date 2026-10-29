@@ -4,6 +4,7 @@ import type { CheckResult, Sentence } from '~/utils/types'
 const route = useRoute()
 const store = useStore()
 const api = useApi()
+const undo = useUndo()
 const { all } = useSentences()
 const topics = useTopics()
 const settings = computed(() => store.state.value.settings)
@@ -39,6 +40,22 @@ function build() {
     picked.push(...rest.slice(0, size - picked.length))
   }
   queue.value = shuffle(picked)
+}
+
+function clearAnswer() {
+  const prev = answer.value
+  if (!prev) return
+  answer.value = ''
+  input.value?.focus()
+  if (prev.trim().length >= 3) {
+    undo.push({
+      message: 'Text cleared',
+      undo: () => {
+        answer.value = prev
+        input.value?.focus()
+      },
+    })
+  }
 }
 
 function beginCard() {
@@ -174,7 +191,7 @@ const levelText = (n: number) => (n >= 90 ? 'Như người bản xứ' : n >= 70
       <div v-if="phase === 'answer'" class="actions">
         <button class="btn primary check" :disabled="!answer.trim()" @click="submit">Check</button>
         <button class="btn" @click="reveal">Show answer</button>
-        <button class="btn ghost" :disabled="!answer" @click="answer = ''; input?.focus()">Clear</button>
+        <button class="btn ghost" :disabled="!answer" @click="clearAnswer">Clear</button>
       </div>
       <div v-else-if="phase === 'checking'" class="muted checking">Checking your answer…</div>
     </section>

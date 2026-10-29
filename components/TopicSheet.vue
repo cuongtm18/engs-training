@@ -6,6 +6,7 @@ const emit = defineEmits<{ 'update:modelValue': [boolean]; saved: [Topic]; delet
 
 const store = useStore()
 const confirm = useConfirm()
+const undo = useUndo()
 const topics = useTopics()
 
 const name = ref('')
@@ -30,7 +31,9 @@ function save() {
   const label = name.value.trim()
   if (!label) return
   if (props.topic) {
-    store.updateTopic(props.topic.id, { label, emoji: emoji.value, color: color.value })
+    const changed = label !== props.topic.label || emoji.value !== props.topic.emoji || color.value !== props.topic.color
+    const restore = store.updateTopic(props.topic.id, { label, emoji: emoji.value, color: color.value })
+    if (changed) undo.push({ message: `Topic “${props.topic.label}” updated`, undo: restore })
     emit('saved', { ...props.topic, label, emoji: emoji.value, color: color.value })
   } else {
     emit('saved', store.addTopic(label, emoji.value, color.value))
@@ -48,8 +51,8 @@ async function remove() {
       : { title: `Remove “${t.label}”?`, message: 'The built-in sentences stay in the app. You can bring this topic back in Settings.', confirmText: 'Remove topic' },
   )
   if (!ok) return
-  if (t.custom) store.removeTopic(t.id)
-  else store.hideTopic(t.id)
+  const restore = t.custom ? store.removeTopic(t.id) : store.hideTopic(t.id)
+  undo.push({ message: t.custom ? `Topic “${t.label}” deleted` : `Topic “${t.label}” removed`, undo: restore, duration: 9000 })
   emit('deleted', t)
   close()
 }

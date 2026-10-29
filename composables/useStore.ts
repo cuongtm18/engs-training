@@ -115,40 +115,79 @@ export function useStore() {
   }
 
   /** Sửa tên, emoji, màu. Chủ đề có sẵn được lưu dưới dạng ghi đè nên có thể sửa như chủ đề tự tạo. */
-  function updateTopic(id: string, patch: { label?: string; emoji?: string; color?: number }) {
+  function updateTopic(id: string, patch: { label?: string; emoji?: string; color?: number }): () => void {
     const clean = {
       ...(patch.label?.trim() ? { label: patch.label.trim().slice(0, 40) } : {}),
       ...(patch.emoji?.trim() ? { emoji: patch.emoji.trim() } : {}),
       ...(patch.color !== undefined ? { color: patch.color } : {}),
     }
     const own = state.value.topics.find((t) => t.id === id)
+    const prevOwn = own ? { label: own.label, emoji: own.emoji, color: own.color } : undefined
+    const prevOverride = state.value.topicOverrides[id] ? { ...state.value.topicOverrides[id] } : undefined
     if (own) Object.assign(own, clean)
     else state.value.topicOverrides[id] = { ...state.value.topicOverrides[id], ...clean }
     save()
+    return () => {
+      const cur = state.value.topics.find((t) => t.id === id)
+      if (cur && prevOwn) Object.assign(cur, prevOwn)
+      else if (prevOverride) state.value.topicOverrides[id] = prevOverride
+      else delete state.value.topicOverrides[id]
+      save()
+    }
   }
 
   /** Xóa chủ đề tự tạo cùng toàn bộ câu và tiến độ của nó. */
-  function removeTopic(id: string) {
-    for (const s of state.value.custom) if (s.t === id) delete state.value.cards[s.id]
+  function removeTopic(id: string): () => void {
+    const index = state.value.topics.findIndex((t) => t.id === id)
+    const topic = state.value.topics[index]
+    const sentences = state.value.custom.filter((s) => s.t === id)
+    const cards = Object.fromEntries(sentences.filter((s) => state.value.cards[s.id]).map((s) => [s.id, state.value.cards[s.id]!]))
+    for (const s of sentences) delete state.value.cards[s.id]
     state.value.custom = state.value.custom.filter((s) => s.t !== id)
     state.value.topics = state.value.topics.filter((t) => t.id !== id)
     save()
+    return () => {
+      if (!topic || state.value.topics.some((t) => t.id === id)) return
+      state.value.topics.splice(Math.min(index, state.value.topics.length), 0, topic)
+      state.value.custom.unshift(...sentences)
+      Object.assign(state.value.cards, cards)
+      save()
+    }
   }
 
   /** Chủ đề có sẵn không xóa hẳn được (dữ liệu nằm trong app) nên chỉ ẩn, có thể khôi phục. */
-  function hideTopic(id: string) {
+  function hideTopic(id: string): () => void {
     if (!state.value.hiddenTopics.includes(id)) state.value.hiddenTopics.push(id)
     save()
+    return () => unhideTopic(id)
   }
 
-  function unhideTopic(id: string) {
+  function unhideTopic(id: string): () => void {
     state.value.hiddenTopics = state.value.hiddenTopics.filter((x) => x !== id)
     save()
+    return () => hideTopic(id)
   }
 
-  function removeSentence(id: string) {
-    state.value.custom = state.value.custom.filter((s) => s.id !== id)
+  function removeSentence(id: string): () => void {
+    const index = state.value.custom.findIndex((s) => s.id === id)
+    if (index < 0) return () => {}
+    const sentence = state.value.custom[index]!
+    const card = state.value.cards[id]
+    state.value.custom.splice(index, 1)
     delete state.value.cards[id]
+    save()
+    return () => {
+      if (state.value.custom.some((s) => s.id === id)) return
+      state.value.custom.splice(Math.min(index, state.value.custom.length), 0, sentence)
+      if (card) state.value.cards[id] = card
+      save()
+    }
+  }
+
+  function removeSentences(ids: string[]) {
+    const set = new Set(ids)
+    state.value.custom = state.value.custom.filter((s) => !set.has(s.id))
+    for (const id of ids) delete state.value.cards[id]
     save()
   }
 
@@ -157,9 +196,17 @@ export function useStore() {
     save()
   }
 
+  const snapshot = () => JSON.stringify(state.value)
+  const restoreSnapshot = (raw: string) => {
+    state.value = JSON.parse(raw)
+    save()
+  }
+
   function reset() {
+    const snap = snapshot()
     state.value = defaults()
     save()
+    return () => restoreSnapshot(snap)
   }
 
   function exportJson() {
@@ -167,11 +214,13 @@ export function useStore() {
   }
 
   function importJson(raw: string) {
+    const snap = snapshot()
     const p = JSON.parse(raw) as Partial<Persisted>
     if (typeof p !== 'object' || !p) throw new Error('invalid')
     state.value = { ...defaults(), cards: p.cards ?? {}, days: p.days ?? {}, custom: p.custom ?? [], topics: p.topics ?? [], topicOverrides: p.topicOverrides ?? {}, hiddenTopics: p.hiddenTopics ?? [], settings: { ...defaults().settings, ...(p.settings ?? {}) } }
     save()
+    return () => restoreSnapshot(snap)
   }
 
-  return { state, grade, today, streak, learned, addSentences, removeSentence, addTopic, updateTopic, removeTopic, hideTopic, unhideTopic, setSettings, reset, save, exportJson, importJson }
+  return { state, grade, today, streak, learned, addSentences, removeSentence, removeSentences, addTopic, updateTopic, removeTopic, hideTopic, unhideTopic, setSettings, reset, save, exportJson, importJson }
 }

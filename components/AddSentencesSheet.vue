@@ -2,10 +2,11 @@
 import type { Sentence, Topic } from '~/utils/types'
 
 const props = defineProps<{ modelValue: boolean; topic: Topic; existing: Sentence[] }>()
-const emit = defineEmits<{ 'update:modelValue': [boolean]; saved: [number] }>()
+const emit = defineEmits<{ 'update:modelValue': [boolean]; saved: [Sentence[]] }>()
 
 const store = useStore()
 const api = useApi()
+const undo = useUndo()
 
 interface Draft {
   vi: string
@@ -132,10 +133,21 @@ async function generate() {
   }
 }
 
+function removeDraft(i: number) {
+  const [gone] = drafts.value.splice(i, 1)
+  if (!gone) return
+  undo.push({
+    message: 'Sentence removed from the list',
+    undo: () => {
+      drafts.value.splice(Math.min(i, drafts.value.length), 0, gone)
+    },
+  })
+}
+
 function saveAll() {
   if (!ready.value.length) return
   const added = store.addSentences(ready.value.map((d) => ({ t: props.topic.id, vi: d.vi.trim(), en: d.en.trim() })))
-  emit('saved', added.length)
+  emit('saved', added)
   emit('update:modelValue', false)
 }
 </script>
@@ -188,7 +200,7 @@ function saveAll() {
           <span v-if="dupKind[i]" class="tag warn">⚠️ {{ dupKind[i] === 'topic' ? 'Already in this topic' : 'Duplicate of another line above' }}, will be skipped</span>
           <span v-else-if="!(d.vi && d.en)" class="tag warn">Fill in both fields</span>
           <span v-else />
-          <button class="btn ghost small-btn" @click="drafts.splice(i, 1)">Remove</button>
+          <button class="btn ghost small-btn" @click="removeDraft(i)">Remove</button>
         </div>
       </div>
     </template>

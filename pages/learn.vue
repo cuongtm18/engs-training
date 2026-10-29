@@ -4,7 +4,7 @@ import type { Sentence } from '~/utils/types'
 const route = useRoute()
 const router = useRouter()
 const store = useStore()
-const confirm = useConfirm()
+const undo = useUndo()
 const { byTopic } = useSentences()
 const topics = useTopics()
 
@@ -17,23 +17,16 @@ const hideEn = ref(false)
 const revealed = reactive<Record<string, boolean>>({})
 const addOpen = ref(false)
 const editOpen = ref(false)
-const toast = ref('')
-let toastTimer: ReturnType<typeof setTimeout> | undefined
 
-function showToast(msg: string) {
-  toast.value = msg
-  clearTimeout(toastTimer)
-  toastTimer = setTimeout(() => (toast.value = ''), 2200)
+function onAdded(added: Sentence[]) {
+  const ids = added.map((s) => s.id)
+  undo.push({ message: `${added.length} ${added.length === 1 ? 'sentence' : 'sentences'} added`, undo: () => store.removeSentences(ids) })
 }
 
-function onAdded(n: number) {
-  showToast(`${n} ${n === 1 ? 'sentence' : 'sentences'} added`)
-  navigator.vibrate?.(10)
-}
-
-async function remove(s: Sentence) {
-  const ok = await confirm.ask({ title: 'Delete this sentence?', message: s.en, confirmText: 'Delete' })
-  if (ok) store.removeSentence(s.id)
+// No confirm dialog: swiping and tapping Delete is already two steps, and the toast offers Undo.
+function remove(s: Sentence) {
+  const restore = store.removeSentence(s.id)
+  undo.push({ message: 'Sentence deleted', undo: restore })
 }
 
 function speak(text: string) {
@@ -50,7 +43,6 @@ onMounted(() => {
   if (topic.value && (route.query.add || !list.value.length)) addOpen.value = true
 })
 onBeforeUnmount(() => {
-  clearTimeout(toastTimer)
   if (import.meta.client && 'speechSynthesis' in window) speechSynthesis.cancel()
 })
 </script>
@@ -109,7 +101,6 @@ onBeforeUnmount(() => {
     <AddSentencesSheet v-model="addOpen" :topic="topic" :existing="list" @saved="onAdded" />
     <TopicSheet v-model="editOpen" :topic="topic" @deleted="router.replace('/')" />
 
-    <Transition name="toast"><div v-if="toast" class="toast" role="status">{{ toast }}</div></Transition>
   </template>
 
   <section v-else class="card">
@@ -141,7 +132,4 @@ onBeforeUnmount(() => {
 .alt { font-size: .85rem; padding: 4px 10px; border-radius: 99px; background: var(--soft); }
 .note { margin: 0; font-size: .92rem; }
 .tip { text-align: center; margin: 14px 0 0; }
-.toast { position: fixed; left: 50%; bottom: calc(28px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 70; background: var(--ink); color: var(--bg); padding: 11px 18px; border-radius: 99px; font-weight: 650; box-shadow: 0 8px 24px rgba(0, 0, 0, .3); }
-.toast-enter-active, .toast-leave-active { transition: opacity .2s, transform .25s; }
-.toast-enter-from, .toast-leave-to { opacity: 0; transform: translate(-50%, 14px); }
 </style>
