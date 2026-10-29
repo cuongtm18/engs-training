@@ -4,11 +4,35 @@ const undo = useUndo()
 
 const paused = ref<Record<number, boolean>>({})
 const hold = (id: number, v: boolean) => (paused.value[id] = v)
+
+// Safari iOS dịch "visual viewport" khỏi "layout viewport" khi bàn phím mở hoặc trang bị kéo/zoom, nên phần tử
+// position: fixed ở đỉnh layout viewport có thể trôi ra ngoài màn hình. Dịch toast theo offsetTop để luôn nằm ở đỉnh vùng đang nhìn thấy.
+const shift = ref(0)
+let raf = 0
+let vv: VisualViewport | null = null
+function sync() {
+  cancelAnimationFrame(raf)
+  raf = requestAnimationFrame(() => (shift.value = Math.max(0, Math.round((window.visualViewport?.offsetTop ?? 0) * 100) / 100)))
+}
+onMounted(() => {
+  vv = window.visualViewport
+  vv?.addEventListener('resize', sync)
+  vv?.addEventListener('scroll', sync)
+  window.addEventListener('scroll', sync, { passive: true })
+  sync()
+})
+onBeforeUnmount(() => {
+  cancelAnimationFrame(raf)
+  vv?.removeEventListener('resize', sync)
+  vv?.removeEventListener('scroll', sync)
+  window.removeEventListener('scroll', sync)
+})
+watch(() => toasts.value.length, sync)
 </script>
 
 <template>
   <Teleport to="body">
-    <div class="host" aria-live="polite" aria-atomic="false">
+    <div class="host" aria-live="polite" aria-atomic="false" :style="{ transform: `translate3d(0, ${shift}px, 0)` }">
       <TransitionGroup name="toast" tag="div" class="stack">
         <div
           v-for="t in toasts"
