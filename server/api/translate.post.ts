@@ -2,14 +2,14 @@ import type { TranslatedLine, TranslateResult } from '~/utils/types'
 
 const MAX_LINES = 20
 
-const SYSTEM = `Bạn giúp người Việt học tiếng Anh giao tiếp hằng ngày. Bạn nhận một danh sách câu được đánh số, mỗi dòng có thể là tiếng Anh hoặc tiếng Việt.
+const SYSTEM = `You help Vietnamese people learn everyday spoken English. You receive a numbered list of sentences; each line may be English or Vietnamese.
 
-Với mỗi dòng, trả về một phần tử gồm i (số thứ tự của dòng), vi, en:
-- Nếu dòng là tiếng Anh: en = câu gốc (chỉ sửa lỗi chính tả hoặc viết hoa rõ ràng, giữ nguyên ý), vi = bản dịch tiếng Việt tự nhiên, đúng ngữ cảnh hội thoại.
-- Nếu dòng là tiếng Việt: vi = câu gốc, en = bản dịch tiếng Anh TỰ NHIÊN như người bản xứ nói trong đời thường (không dịch sát từng chữ).
-- Giữ nguyên số lượng và thứ tự: mỗi dòng đầu vào đúng một phần tử đầu ra.
+For every line return one element with i (the line number), vi and en:
+- If the line is English: en = the original sentence (only fix clear typos or capitalization, keep the meaning), vi = a natural Vietnamese translation that fits an everyday conversation.
+- If the line is Vietnamese: vi = the original sentence, en = a NATURAL English translation, the way a native speaker would really say it (not word for word).
+- Keep the same count and order: exactly one output element per input line.
 
-Chỉ trả về JSON đúng schema, không thêm chữ nào khác.`
+Reply with JSON that matches the schema and nothing else.`
 
 const SCHEMA = {
   type: 'object',
@@ -32,7 +32,7 @@ export default defineEventHandler(async (event) => {
 
   const body = await readBody<{ lines?: unknown }>(event)
   const lines = Array.isArray(body?.lines) ? body.lines.map((l) => String(l).trim()).filter(Boolean) : []
-  if (!lines.length || lines.length > MAX_LINES || lines.some((l) => l.length > 300)) throw badRequest(`Mỗi lần dịch tối đa ${MAX_LINES} dòng, mỗi dòng tối đa 300 ký tự.`)
+  if (!lines.length || lines.length > MAX_LINES || lines.some((l) => l.length > 300)) throw badRequest(`Translate at most ${MAX_LINES} lines at a time, each up to 300 characters.`)
 
   const parse = (obj: any): TranslatedLine[] | null => {
     if (!Array.isArray(obj?.items)) return null

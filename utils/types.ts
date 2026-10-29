@@ -13,6 +13,8 @@ export interface Topic {
   id: string
   label: string
   emoji: string
+  /** Chủ đề do người dùng tự tạo */
+  custom?: boolean
 }
 
 /** Kết quả chấm 2 bước: đúng cấu trúc/ý nghĩa trước, rồi mới tới độ tự nhiên. */

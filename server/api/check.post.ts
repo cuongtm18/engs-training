@@ -7,23 +7,23 @@ interface Body {
   alternatives?: string[]
 }
 
-const SYSTEM = `Bạn là giáo viên tiếng Anh thân thiện cho người Việt (trình độ A2-B1).
-Người học nhìn một câu tiếng Việt và tự dịch sang tiếng Anh. Hãy chấm bản dịch theo 2 bước:
+const SYSTEM = `You are a friendly English teacher for a Vietnamese learner (level A2-B1).
+The learner sees a Vietnamese sentence and translates it into English. Grade the translation in two steps.
 
-Bước 1, structureOk (true/false): bản dịch có đúng cấu trúc và đủ ý không?
-- true nếu câu đúng ngữ pháp cơ bản, hiểu được và truyền đạt đúng ý của câu tiếng Việt.
-- false nếu sai nghĩa, thiếu ý chính, sai ngữ pháp nặng hoặc không phải một câu hoàn chỉnh.
-- Lỗi nhỏ như gõ sai chính tả một chữ, thiếu dấu câu, quên viết hoa KHÔNG làm structureOk thành false.
-- Đáp án tham khảo chỉ để bạn hiểu ý. Mọi cách dịch đúng nghĩa và đúng ngữ pháp đều được chấp nhận, đừng bắt người học phải giống hệt đáp án.
+Step 1, structureOk (true/false): is the structure correct and is the meaning complete?
+- true if the sentence is grammatically sound enough to be understood and conveys the meaning of the Vietnamese sentence.
+- false if the meaning is wrong, a key idea is missing, the grammar is badly broken, or it is not a complete sentence.
+- Small slips such as one misspelled word, missing punctuation or missing capital letters do NOT make structureOk false.
+- The reference answer is only a hint about the intended meaning. Accept every translation that is correct in meaning and grammar; never require it to match the reference.
 
-Bước 2, naturalness (số nguyên 0-100): người bản xứ có nói như vậy không?
-- 90-100: tự nhiên như người bản xứ. 70-89: đúng nhưng hơi sách vở hoặc cứng. 40-69: nghe được nhưng gượng, sai collocation hoặc giới từ.
-- Nếu structureOk là false thì đặt naturalness = 0.
+Step 2, naturalness (integer 0-100): would a native speaker actually say it this way?
+- 90-100: sounds native. 70-89: correct but a bit textbook or stiff. 40-69: understandable but awkward, with wrong collocations or prepositions.
+- If structureOk is false, set naturalness to 0.
 
-natural: một câu tiếng Anh tự nhiên nhất để nói trong tình huống đó. Nếu câu của người học đã tốt thì giữ nguyên hoặc chỉ sửa tối thiểu.
-explanation: tối đa 2 câu tiếng Việt. Nếu sai cấu trúc thì nói rõ lỗi trước. Nếu đúng cấu trúc thì nói vì sao chưa 100% tự nhiên (hoặc khen ngắn gọn nếu đã tự nhiên).
+natural: the single most natural English sentence for this situation. If the learner's sentence is already good, keep it or change it minimally.
+explanation: at most 2 short sentences in simple English (the learner is A2-B1). If the structure is wrong, name the specific mistake first. If the structure is fine, say why it is not 100% natural, or give brief praise if it is natural.
 
-Chỉ trả về JSON đúng schema, không thêm chữ nào khác.`
+Reply with JSON that matches the schema and nothing else.`
 
 const SCHEMA = {
   type: 'object',
@@ -59,8 +59,8 @@ export default defineEventHandler(async (event) => {
   const alternatives = (body?.alternatives ?? []).slice(0, 6).map((s) => String(s).slice(0, 300))
   if (!vi || !answer || !reference || vi.length > 300 || answer.length > 300 || reference.length > 300) throw badRequest()
 
-  const alts = alternatives.length ? `\nCác cách dịch khác cũng đúng: ${alternatives.join(' | ')}` : ''
-  const prompt = `Câu tiếng Việt: ${vi}\nĐáp án tham khảo: ${reference}${alts}\nBản dịch của người học: ${answer}`
+  const alts = alternatives.length ? `\nOther accepted translations: ${alternatives.join(' | ')}` : ''
+  const prompt = `Vietnamese sentence: ${vi}\nReference answer: ${reference}${alts}\nLearner's translation: ${answer}`
 
   const { data, engine } = await aiJson(env, { system: SYSTEM, prompt, schema: SCHEMA, parse })
   return { ...data, engine } satisfies CheckResult

@@ -13,7 +13,7 @@ function doExport() {
   const blob = new Blob([store.exportJson()], { type: 'application/json' })
   const a = document.createElement('a')
   a.href = URL.createObjectURL(blob)
-  a.download = `engs-progress-${dayKey()}.json`
+  a.download = `english-reflex-progress-${dayKey()}.json`
   a.click()
   URL.revokeObjectURL(a.href)
 }
@@ -23,48 +23,48 @@ async function doImport(e: Event) {
   if (!f) return
   try {
     store.importJson(await f.text())
-    msg.value = 'Đã nhập tiến độ.'
+    msg.value = 'Progress imported.'
   } catch {
-    msg.value = 'File không hợp lệ.'
+    msg.value = 'That file is not valid.'
   }
 }
 
 function doReset() {
-  if (confirm('Xóa toàn bộ tiến độ học?')) {
+  if (confirm('Delete all progress, your own topics and your own sentences?')) {
     store.reset()
-    msg.value = 'Đã xóa tiến độ.'
+    msg.value = 'Everything has been reset.'
   }
 }
 </script>
 
 <template>
   <header class="row top">
-    <NuxtLink to="/" class="btn ghost">←</NuxtLink>
-    <h1>Cài đặt</h1>
+    <NuxtLink to="/" class="btn ghost" aria-label="Back">←</NuxtLink>
+    <h1>Settings</h1>
   </header>
 
   <section class="card f">
-    <label>Số câu mỗi lượt
+    <label>Sentences per practice round
       <input type="number" inputmode="numeric" :value="s.sessionSize" @change="num($event, 'sessionSize', 3, 50)" />
     </label>
-    <label>Số câu mới tối đa mỗi lượt luyện
+    <label>Max new sentences per round
       <input type="number" inputmode="numeric" :value="s.dailyNew" @change="num($event, 'dailyNew', 0, 100)" />
     </label>
-    <label>Mã truy cập (nếu bạn đã đặt ACCESS_CODE trên server)
+    <label>Access code (only if you set ACCESS_CODE on the server)
       <input type="password" :value="s.accessCode" autocomplete="off" @change="store.setSettings({ accessCode: ($event.target as HTMLInputElement).value })" />
     </label>
   </section>
 
   <section class="card f">
-    <h2>Dữ liệu</h2>
+    <h2>Data</h2>
     <div class="row wrap">
-      <button class="btn" @click="doExport">Xuất tiến độ</button>
-      <button class="btn" @click="fileInput?.click()">Nhập tiến độ</button>
-      <button class="btn ghost" @click="doReset">Xóa tiến độ</button>
+      <button class="btn" @click="doExport">Export progress</button>
+      <button class="btn" @click="fileInput?.click()">Import progress</button>
+      <button class="btn ghost" @click="doReset">Reset everything</button>
     </div>
     <input ref="fileInput" type="file" accept="application/json" hidden @change="doImport" />
     <p v-if="msg" class="muted">{{ msg }}</p>
-    <p class="muted small">Tiến độ chỉ lưu trên máy này. Dùng "Xuất/Nhập" để chuyển sang thiết bị khác.</p>
+    <p class="muted small">Progress, topics and sentences are stored only on this device. Use Export / Import to move them to another device.</p>
   </section>
 </template>
 

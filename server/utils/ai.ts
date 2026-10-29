@@ -8,7 +8,7 @@ export interface AiEnv {
   AI?: { run: (model: string, input: unknown) => Promise<any> }
 }
 
-/** Schema JSON dạng chuẩn (type viết thường), tự đổi sang kiểu của Gemini khi gọi. */
+/** Standard JSON schema (lowercase types); converted to Gemini's format when calling. */
 export type JsonSchema = {
   type: 'object' | 'string' | 'integer' | 'boolean' | 'array'
   properties?: Readonly<Record<string, JsonSchema>>
@@ -19,7 +19,9 @@ export type JsonSchema = {
 export type Engine = 'gemini' | 'workers-ai'
 
 export function getEnv(event: H3Event): AiEnv {
-  return ((event.context as any).cloudflare?.env ?? process.env) as AiEnv
+  const env = ((event.context as any).cloudflare?.env ?? process.env) as AiEnv
+  // Keys pasted into a dashboard often carry stray spaces/newlines, which makes Google answer 401.
+  return { ...env, GEMINI_API_KEY: env.GEMINI_API_KEY?.trim() || undefined, GEMINI_MODEL: env.GEMINI_MODEL?.trim() || undefined }
 }
 
 export function assertAccess(event: H3Event, env: AiEnv) {
@@ -27,12 +29,12 @@ export function assertAccess(event: H3Event, env: AiEnv) {
     throw createError({
       statusCode: 401,
       statusMessage: 'Unauthorized',
-      data: { detail: 'Sai mã truy cập: hãy nhập đúng ACCESS_CODE trong ⚙️ Cài đặt.' },
+      data: { detail: 'Wrong access code: enter the correct ACCESS_CODE in ⚙️ Settings.' },
     })
   }
 }
 
-export function badRequest(detail = 'Dữ liệu gửi lên không hợp lệ.') {
+export function badRequest(detail = 'Invalid request data.') {
   return createError({ statusCode: 400, statusMessage: 'Bad Request', data: { detail } })
 }
 
@@ -58,7 +60,7 @@ function extractJson(raw: unknown): any | null {
 
 async function callGemini(env: AiEnv, model: string, system: string, prompt: string, schema: JsonSchema, temperature: number, useSchema = true) {
   // Nếu Google từ chối schema (400) thì mô tả schema ngay trong lời nhắc thay vì dùng responseSchema.
-  const sys = useSchema ? system : `${system}\n\nTrả về đúng một đối tượng JSON theo schema sau:\n${JSON.stringify(schema)}`
+  const sys = useSchema ? system : `${system}\n\nReply with exactly one JSON object that matches this schema:\n${JSON.stringify(schema)}`
   const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY! },
@@ -79,7 +81,7 @@ async function callGemini(env: AiEnv, model: string, system: string, prompt: str
     try {
       msg = String(((await res.json()) as any)?.error?.message ?? '').replace(/\s+/g, ' ').slice(0, 160)
     } catch {
-      /* không đọc được nội dung lỗi */
+      /* error body not readable */
     }
     throw Object.assign(new Error(`${model} ${res.status}${msg ? ` (${msg})` : ''}`), { status: res.status })
   }
@@ -110,9 +112,11 @@ async function viaGemini(env: AiEnv, system: string, prompt: string, schema: Jso
     }
   }
   const hint = errors.some((m) => / 402\b/.test(m))
-    ? ' (402: project của key này đang ở gói trả phí và hết credit; hãy dùng key của project không gắn billing để được free)'
-    : ''
-  throw new Error(`gemini: ${errors.join(', ') || 'không có model nào dùng được với key này'}${hint}`)
+    ? ' (402: the project behind this key is on a paid plan and out of credit; use a key from a project without billing to stay on the free tier)'
+    : errors.some((m) => / 401\b/.test(m))
+      ? ' (401: Google rejected the API key; re-create it in AI Studio and paste it again without spaces)'
+      : ''
+  throw new Error(`gemini: ${errors.join(', ') || 'no model is usable with this key'}${hint}`)
 }
 
 // Cloudflare gỡ model theo lịch (llama-3.1-8b-instruct đã bị gỡ 2026-05-30) nên thử lần lượt vài model.
@@ -154,8 +158,8 @@ async function viaWorkersAi(env: AiEnv, system: string, prompt: string, schema: 
 }
 
 /**
- * Gọi AI trả về JSON: Gemini trước, dự phòng Workers AI. `parse` kiểm tra và chuẩn hóa kết quả,
- * trả null nếu dữ liệu không hợp lệ.
+ * Call an AI for JSON: Gemini first, Workers AI as the fallback. `parse` validates and normalizes the
+ * result and returns null when the data is invalid.
  */
 export async function aiJson<T>(
   env: AiEnv,
@@ -168,7 +172,7 @@ export async function aiJson<T>(
     try {
       const data = parse(await viaGemini(env, system, prompt, schema, temperature))
       if (data) return { data, engine: 'gemini' }
-      errors.push('gemini: kết quả không đúng định dạng')
+      errors.push('gemini: unexpected output format')
     } catch (e) {
       errors.push((e as Error).message)
     }
@@ -177,7 +181,7 @@ export async function aiJson<T>(
     try {
       const data = parse(await viaWorkersAi(env, system, prompt, schema, temperature, maxTokens))
       if (data) return { data, engine: 'workers-ai' }
-      errors.push('workers-ai: kết quả không đúng định dạng')
+      errors.push('workers-ai: unexpected output format')
     } catch (e) {
       errors.push((e as Error).message)
     }
@@ -189,8 +193,8 @@ export async function aiJson<T>(
     statusMessage: 'AI unavailable',
     data: {
       detail: errors.length
-        ? `AI báo lỗi: ${errors.join('; ')}`
-        : 'Server chưa thấy GEMINI_API_KEY hoặc binding AI. Kiểm tra biến môi trường (Production) rồi deploy lại.',
+        ? `AI error: ${errors.join('; ')}`
+        : 'The server sees no GEMINI_API_KEY or AI binding. Check the Production environment variables, then redeploy.',
     },
   })
 }

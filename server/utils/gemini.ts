@@ -18,7 +18,7 @@ function rank(id: string): [number, number, number] {
 
 /**
  * Danh sách model Gemini để thử theo thứ tự ưu tiên: bản ổn định trước, flash-lite trước flash
- * (hạn mức free cao hơn), rồi version mới trước. GEMINI_MODEL (nếu đặt) luôn được thử đầu tiên.
+ * (higher free quota), rồi version mới trước. GEMINI_MODEL (nếu đặt) luôn được thử đầu tiên.
  */
 export async function pickGeminiModels(env: { GEMINI_API_KEY?: string; GEMINI_MODEL?: string }): Promise<string[]> {
   const forced = env.GEMINI_MODEL?.trim()

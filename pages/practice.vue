@@ -5,6 +5,7 @@ const route = useRoute()
 const store = useStore()
 const api = useApi()
 const { all } = useSentences()
+const topics = useTopics()
 const settings = computed(() => store.state.value.settings)
 
 type Phase = 'answer' | 'checking' | 'result' | 'done'
@@ -19,7 +20,7 @@ const tally = reactive({ perfect: 0, good: 0, wrong: 0 })
 const input = ref<HTMLTextAreaElement>()
 
 const current = computed(() => queue.value[index.value])
-const topic = computed(() => topicById(String(route.query.t ?? '')))
+const topic = computed(() => topics.byId(String(route.query.t ?? '')))
 const verdict = computed(() => (result.value ? verdictOf(result.value) : 'wrong'))
 
 function build() {
@@ -54,7 +55,7 @@ function offlineResult(s: Sentence, text: string, reason: string): CheckResult {
     structureOk: ok,
     naturalness: ok ? Math.round(ratio * 100) : 0,
     natural: s.en,
-    explanation: `${reason} App chỉ ước lượng bằng cách so với câu mẫu, điểm chỉ mang tính tham khảo.`,
+    explanation: `${reason} The app can only estimate by comparing with the sample sentence, so treat the score as a rough guide.`,
     engine: 'offline',
   }
 }
@@ -65,7 +66,7 @@ async function submit() {
   if (!s || !text || phase.value !== 'answer') return
 
   if (matchesAny(text, s)) {
-    finish({ structureOk: true, naturalness: 100, natural: text, explanation: 'Chuẩn rồi! Câu này đúng và rất tự nhiên.', engine: 'local' })
+    finish({ structureOk: true, naturalness: 100, natural: text, explanation: 'Spot on! This is correct and sounds very natural.', engine: 'local' })
     return
   }
 
@@ -99,7 +100,7 @@ function finish(res: CheckResult) {
 function reveal() {
   const s = current.value
   if (!s || phase.value !== 'answer') return
-  finish({ structureOk: false, naturalness: 0, natural: s.en, explanation: 'Bạn đã xem đáp án. Câu này sẽ quay lại sớm để ôn.', engine: 'local' })
+  finish({ structureOk: false, naturalness: 0, natural: s.en, explanation: 'You peeked at the answer. This sentence will come back soon for review.', engine: 'local' })
 }
 
 function next() {
@@ -142,27 +143,27 @@ onBeforeUnmount(() => {
   if (import.meta.client && 'speechSynthesis' in window) speechSynthesis.cancel()
 })
 
-const title = { perfect: 'Tuyệt vời! 🎉', good: 'Đúng rồi, nói tự nhiên hơn nữa nhé 👍', wrong: 'Chưa đúng cấu trúc 💪' }
-const levelText = (n: number) => (n >= 90 ? 'Như người bản xứ' : n >= 70 ? 'Khá tự nhiên' : n >= 40 ? 'Hơi gượng' : 'Cần chỉnh nhiều')
+const title = { perfect: 'Excellent! 🎉', good: 'Correct! Now make it sound more natural 👍', wrong: 'Not quite right yet 💪' }
+const levelText = (n: number) => (n >= 90 ? 'Sounds like a native speaker' : n >= 70 ? 'Fairly natural' : n >= 40 ? 'A bit awkward' : 'Needs a lot of work')
 </script>
 
 <template>
   <template v-if="phase !== 'done' && current">
     <header class="row top">
-      <NuxtLink to="/" class="btn ghost" aria-label="Thoát">✕</NuxtLink>
+      <NuxtLink to="/" class="btn ghost" aria-label="Exit">✕</NuxtLink>
       <div class="bar grow"><i :style="{ width: ((index + (phase === 'result' ? 1 : 0)) / queue.length) * 100 + '%' }" /></div>
       <span class="muted">{{ index + 1 }}/{{ queue.length }}</span>
     </header>
 
     <section class="card q">
-      <span class="muted">{{ topic ? topic.emoji + ' ' + topic.label : 'Ôn tập' }} · Câu {{ index + 1 }}</span>
-      <p class="vi">{{ current.vi }}</p>
+      <span class="muted">{{ topic ? topic.emoji + ' ' + topic.label : 'Review' }} · Sentence {{ index + 1 }}</span>
+      <p class="vi" lang="vi">{{ current.vi }}</p>
 
       <textarea
         ref="input"
         v-model="answer"
         rows="3"
-        placeholder="Gõ câu tiếng Anh…"
+        placeholder="Type your English sentence…"
         autocapitalize="sentences"
         autocomplete="off"
         autocorrect="off"
@@ -171,11 +172,11 @@ const levelText = (n: number) => (n >= 90 ? 'Như người bản xứ' : n >= 70
       />
 
       <div v-if="phase === 'answer'" class="row wrap actions">
-        <button class="btn primary grow" :disabled="!answer.trim()" @click="submit">Kiểm tra</button>
-        <button class="btn" @click="reveal">Hiện đáp án</button>
-        <button class="btn ghost" :disabled="!answer" @click="answer = ''; input?.focus()">Xóa phần viết</button>
+        <button class="btn primary grow" :disabled="!answer.trim()" @click="submit">Check</button>
+        <button class="btn" @click="reveal">Show answer</button>
+        <button class="btn ghost" :disabled="!answer" @click="answer = ''; input?.focus()">Clear</button>
       </div>
-      <div v-else-if="phase === 'checking'" class="muted checking">Đang chấm bài…</div>
+      <div v-else-if="phase === 'checking'" class="muted checking">Checking your answer…</div>
     </section>
 
     <section v-if="phase === 'result' && result" class="card res" :class="verdict">
@@ -188,8 +189,8 @@ const levelText = (n: number) => (n >= 90 ? 'Như người bản xứ' : n >= 70
         <div class="row">
           <span class="dot" :class="result.structureOk ? 'ok' : 'no'">{{ result.structureOk ? '✓' : '✕' }}</span>
           <div class="grow">
-            <b>Bước 1 · Cấu trúc và ý nghĩa</b>
-            <div class="muted small">{{ result.structureOk ? 'Đúng cấu trúc, đủ ý' : 'Chưa đúng cấu trúc hoặc chưa đủ ý' }}</div>
+            <b>Step 1 · Structure and meaning</b>
+            <div class="muted small">{{ result.structureOk ? 'Correct structure, complete meaning' : 'The structure or meaning needs work' }}</div>
           </div>
         </div>
       </div>
@@ -198,18 +199,18 @@ const levelText = (n: number) => (n >= 90 ? 'Như người bản xứ' : n >= 70
         <div class="row">
           <span class="dot" :class="result.structureOk ? (result.naturalness >= 80 ? 'ok' : 'mid') : 'lock'">{{ result.structureOk ? '%' : '🔒' }}</span>
           <div class="grow">
-            <b>Bước 2 · Độ tự nhiên<template v-if="result.structureOk"> · {{ result.naturalness }}%</template></b>
+            <b>Step 2 · Naturalness<template v-if="result.structureOk"> · {{ result.naturalness }}%</template></b>
             <div v-if="result.structureOk" class="meter"><i :style="{ width: result.naturalness + '%' }" :class="result.naturalness >= 80 ? 'hi' : result.naturalness >= 50 ? 'mid' : 'lo'" /></div>
-            <div class="muted small">{{ result.structureOk ? levelText(result.naturalness) : 'Sửa cấu trúc trước, rồi mới chấm độ tự nhiên' }}</div>
+            <div class="muted small">{{ result.structureOk ? levelText(result.naturalness) : 'Fix the structure first, then naturalness gets scored' }}</div>
           </div>
         </div>
       </div>
 
       <div class="natural">
-        <div class="muted small">Cách nói tự nhiên</div>
+        <div class="muted small">Natural version</div>
         <div class="row">
           <b class="grow">{{ result.natural }}</b>
-          <button class="btn ghost" aria-label="Nghe" @click="speak(result.natural)">🔊</button>
+          <button class="btn ghost" aria-label="Listen" @click="speak(result.natural)">🔊</button>
         </div>
       </div>
 
@@ -217,27 +218,27 @@ const levelText = (n: number) => (n >= 90 ? 'Như người bản xứ' : n >= 70
       <p v-if="current.note" class="note">💡 {{ current.note }}</p>
 
       <details v-if="current.alt?.length" class="alts">
-        <summary>Các cách nói khác</summary>
+        <summary>Other ways to say it</summary>
         <ul>
           <li v-for="a in [current.en, ...current.alt]" :key="a">{{ a }}</li>
         </ul>
       </details>
 
-      <button class="btn primary block" @click="next">{{ index + 1 >= queue.length ? 'Hoàn thành' : 'Câu tiếp theo' }}</button>
+      <button class="btn primary block" @click="next">{{ index + 1 >= queue.length ? 'Finish' : 'Next sentence' }}</button>
     </section>
   </template>
 
   <section v-else-if="phase === 'done'" class="card done">
-    <h1>Xong lượt luyện! 🎊</h1>
+    <h1>Round complete! 🎊</h1>
     <div class="sum">
-      <div><b>{{ tally.perfect }}</b><span class="muted">rất tự nhiên</span></div>
-      <div><b>{{ tally.good }}</b><span class="muted">đúng, cần tự nhiên hơn</span></div>
-      <div><b>{{ tally.wrong }}</b><span class="muted">cần ôn lại</span></div>
+      <div><b>{{ tally.perfect }}</b><span class="muted">very natural</span></div>
+      <div><b>{{ tally.good }}</b><span class="muted">correct, could be more natural</span></div>
+      <div><b>{{ tally.wrong }}</b><span class="muted">to review</span></div>
     </div>
-    <p class="muted">🔥 Chuỗi hiện tại: {{ store.streak.value }} ngày · Hôm nay: {{ store.today.value }} câu</p>
+    <p class="muted">🔥 Streak: {{ store.streak.value }} {{ store.streak.value === 1 ? 'day' : 'days' }} · Today: {{ store.today.value }} answered</p>
     <div class="row">
-      <NuxtLink to="/" class="btn grow">Về trang chủ</NuxtLink>
-      <button class="btn primary grow" @click="$router.go(0)">Luyện tiếp</button>
+      <NuxtLink to="/" class="btn grow">Home</NuxtLink>
+      <button class="btn primary grow" @click="$router.go(0)">Practice more</button>
     </div>
   </section>
 </template>

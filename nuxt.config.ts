@@ -6,8 +6,8 @@ export default defineNuxtConfig({
 
   app: {
     head: {
-      title: 'Phản xạ tiếng Anh',
-      htmlAttrs: { lang: 'vi' },
+      title: 'English Reflex',
+      htmlAttrs: { lang: 'en' },
       meta: [
         { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
         { name: 'theme-color', content: '#fdf3e7' },
@@ -29,10 +29,10 @@ export default defineNuxtConfig({
   pwa: {
     registerType: 'autoUpdate',
     manifest: {
-      name: 'Phản xạ tiếng Anh',
-      short_name: 'Phản xạ EN',
-      description: 'Luyện phản xạ dịch Việt → Anh qua các tình huống hằng ngày.',
-      lang: 'vi',
+      name: 'English Reflex',
+      short_name: 'EN Reflex',
+      description: 'Train your English reflexes: translate everyday Vietnamese sentences into natural English.',
+      lang: 'en',
       theme_color: '#fdf3e7',
       background_color: '#fdf3e7',
       display: 'standalone',

@@ -1,4 +1,4 @@
-import type { CardState, CheckResult, Sentence, Settings } from '~/utils/types'
+import type { CardState, CheckResult, Sentence, Settings, Topic } from '~/utils/types'
 
 const KEY = 'engs.v1'
 const INTERVAL_DAYS = [0, 1, 3, 7, 16, 35]
@@ -10,6 +10,7 @@ interface Persisted {
   settings: Settings
   cache: Record<string, CheckResult>
   custom: Sentence[]
+  topics: Topic[]
 }
 
 const defaults = (): Persisted => ({
@@ -17,6 +18,7 @@ const defaults = (): Persisted => ({
   days: {},
   cache: {},
   custom: [],
+  topics: [],
   settings: { accessCode: '', sessionSize: 10, dailyNew: 10 },
 })
 
@@ -36,6 +38,7 @@ function load(): Persisted {
       days: p.days ?? {},
       cache,
       custom: p.custom ?? [],
+      topics: p.topics ?? [],
       settings: { ...base.settings, ...(p.settings ?? {}) },
     }
   } catch {
@@ -98,6 +101,29 @@ export function useStore() {
     return added
   }
 
+  function addTopic(label: string, emoji: string): Topic {
+    const topic: Topic = { id: `c-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 4)}`, label: label.trim().slice(0, 40), emoji: emoji.trim() || '📚', custom: true }
+    state.value.topics.push(topic)
+    save()
+    return topic
+  }
+
+  function renameTopic(id: string, label: string, emoji: string) {
+    const t = state.value.topics.find((x) => x.id === id)
+    if (!t || !label.trim()) return
+    t.label = label.trim().slice(0, 40)
+    t.emoji = emoji.trim() || t.emoji
+    save()
+  }
+
+  /** Xóa chủ đề tự tạo cùng toàn bộ câu và tiến độ của nó. */
+  function removeTopic(id: string) {
+    for (const s of state.value.custom) if (s.t === id) delete state.value.cards[s.id]
+    state.value.custom = state.value.custom.filter((s) => s.t !== id)
+    state.value.topics = state.value.topics.filter((t) => t.id !== id)
+    save()
+  }
+
   function removeSentence(id: string) {
     state.value.custom = state.value.custom.filter((s) => s.id !== id)
     delete state.value.cards[id]
@@ -115,15 +141,15 @@ export function useStore() {
   }
 
   function exportJson() {
-    return JSON.stringify({ cards: state.value.cards, days: state.value.days, custom: state.value.custom, settings: state.value.settings })
+    return JSON.stringify({ cards: state.value.cards, days: state.value.days, custom: state.value.custom, topics: state.value.topics, settings: state.value.settings })
   }
 
   function importJson(raw: string) {
     const p = JSON.parse(raw) as Partial<Persisted>
     if (typeof p !== 'object' || !p) throw new Error('invalid')
-    state.value = { ...defaults(), cards: p.cards ?? {}, days: p.days ?? {}, custom: p.custom ?? [], settings: { ...defaults().settings, ...(p.settings ?? {}) } }
+    state.value = { ...defaults(), cards: p.cards ?? {}, days: p.days ?? {}, custom: p.custom ?? [], topics: p.topics ?? [], settings: { ...defaults().settings, ...(p.settings ?? {}) } }
     save()
   }
 
-  return { state, grade, today, streak, learned, addSentences, removeSentence, setSettings, reset, save, exportJson, importJson }
+  return { state, grade, today, streak, learned, addSentences, removeSentence, addTopic, renameTopic, removeTopic, setSettings, reset, save, exportJson, importJson }
 }
