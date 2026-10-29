@@ -44,10 +44,13 @@ Biến tùy chọn: `GEMINI_MODEL` (mặc định server tự chọn model dùng
 
 ## Deploy thủ công từ máy
 
-Cần đăng nhập Cloudflare một lần (`npx wrangler@4 login`), rồi:
+Cách khuyên dùng là **để Cloudflare tự build từ GitHub** (push lên `main` là tự deploy). Chỉ dùng deploy tay khi cần:
 
 ```bash
-pnpm run deploy:cf   # hoặc: npm run deploy:cf
+npx wrangler@4 login      # một lần
+pnpm run deploy:cf        # hoặc: npm run deploy:cf
 ```
 
-Lệnh này build production rồi đẩy thư mục `dist` lên project `engs-training`. (Không đặt tên script là `deploy` vì `pnpm deploy` là lệnh có sẵn của pnpm.)
+Script `scripts/deploy.mjs` xóa `dist` cũ, build production (vào thư mục riêng `.nuxt-build`, không đụng tới `.nuxt` của `nuxt dev`), **kiểm tra bản build không lẫn file dev** (`@vite/client`, đường dẫn `E:/...`) rồi mới upload. Nếu phát hiện file dev thì dừng và không upload gì. (Không đặt tên script là `deploy` vì `pnpm deploy` là lệnh có sẵn của pnpm.)
+
+Nếu trang production bị trắng và console báo 404 cho `/_nuxt/@vite/client`, nghĩa là một bản build dev đã bị upload. Cách sửa: vào Cloudflare → Deployments, chọn bản Git mới nhất → **Rollback to this deployment**, hoặc push một commit mới lên `main`.

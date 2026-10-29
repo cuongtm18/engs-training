@@ -4,6 +4,9 @@ export default defineNuxtConfig({
   modules: ['@vite-pwa/nuxt'],
   devtools: { enabled: false },
 
+  // `nuxt build` dùng thư mục riêng để không dính file của `nuxt dev` (.nuxt).
+  $production: { buildDir: '.nuxt-build' },
+
   app: {
     head: {
       title: 'English Reflex',
