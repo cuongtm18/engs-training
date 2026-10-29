@@ -9,8 +9,11 @@ const all = sentences as Sentence[]
 const topics = ref<string[]>(TOPICS.map((t) => t.id))
 const levels = ref<number[]>([1, 2, 3])
 
-function toggle<T>(list: Ref<T[]>, v: T) {
-  list.value = list.value.includes(v) ? list.value.filter((x) => x !== v) : [...list.value, v]
+function toggleTopic(id: string) {
+  topics.value = topics.value.includes(id) ? topics.value.filter((x) => x !== id) : [...topics.value, id]
+}
+function toggleLevel(id: number) {
+  levels.value = levels.value.includes(id) ? levels.value.filter((x) => x !== id) : [...levels.value, id]
 }
 
 const pool = computed(() => all.filter((s) => topics.value.includes(s.t) && levels.value.includes(s.l)))
@@ -46,13 +49,13 @@ function start() {
   <section class="card block">
     <h2>Chủ đề</h2>
     <div class="row wrap">
-      <button v-for="t in TOPICS" :key="t.id" class="chip" :class="{ on: topics.includes(t.id) }" @click="toggle(topics, t.id)">
+      <button v-for="t in TOPICS" :key="t.id" class="chip" :class="{ on: topics.includes(t.id) }" @click="toggleTopic(t.id)">
         {{ t.emoji }} {{ t.label }}
       </button>
     </div>
     <h2 style="margin-top: 16px">Độ khó</h2>
     <div class="row wrap">
-      <button v-for="l in LEVELS" :key="l.id" class="chip" :class="{ on: levels.includes(l.id) }" @click="toggle(levels, l.id)">
+      <button v-for="l in LEVELS" :key="l.id" class="chip" :class="{ on: levels.includes(l.id) }" @click="toggleLevel(l.id)">
         {{ l.label }}
       </button>
     </div>
