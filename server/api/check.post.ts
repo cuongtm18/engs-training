@@ -94,19 +94,27 @@ async function callGemini(env: Env, model: string, prompt: string): Promise<Chec
   return { ...parsed, engine: 'gemini' }
 }
 
-// Thử lần lượt các model; chỉ chuyển sang model kế tiếp khi model không tồn tại (404), hết hạn mức (429) hoặc quá tải (5xx).
+// Model bị từ chối vì không có trong gói của key (402/403) hoặc không tồn tại (404) thì nhớ lại 1 giờ để khỏi gọi lại.
+const unavailable = new Map<string, number>()
+const SKIP_MS = 3_600_000
+
+// Thử lần lượt các model. Chuyển sang model kế tiếp khi model không dùng được với key này
+// (402/403/404), hết hạn mức (429) hoặc quá tải (5xx); các lỗi khác (vd 400 sai key) thì dừng.
 async function viaGemini(env: Env, prompt: string): Promise<CheckResult> {
   const errors: string[] = []
+  const now = Date.now()
   for (const model of await pickGeminiModels(env)) {
+    if ((unavailable.get(model) ?? 0) > now) continue
     try {
       return await callGemini(env, model, prompt)
     } catch (e) {
       errors.push((e as Error).message)
-      const status = (e as { status?: number }).status
-      if (status && status !== 404 && status !== 429 && status < 500) break
+      const status = (e as { status?: number }).status ?? 0
+      if ([402, 403, 404].includes(status)) unavailable.set(model, now + SKIP_MS)
+      else if (status && status !== 429 && status < 500) break
     }
   }
-  throw new Error(`gemini: ${errors.join(', ')}`)
+  throw new Error(`gemini: ${errors.join(', ') || 'không có model nào dùng được với key này'}`)
 }
 
 async function viaWorkersAi(env: Env, prompt: string): Promise<CheckResult> {
