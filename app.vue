@@ -55,7 +55,10 @@ onBeforeUnmount(() => stopTextUndo?.())
   }
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-html, body { margin: 0; background: var(--bg); color: var(--ink); overscroll-behavior-y: none; }
+html, body { margin: 0; background: var(--bg); color: var(--ink); overscroll-behavior-y: none; touch-action: pan-x pan-y; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+/* PWA như native app: ẩn scrollbar ở mọi nơi (vẫn cuộn được) */
+* { scrollbar-width: none; -ms-overflow-style: none; }
+*::-webkit-scrollbar { display: none; width: 0; height: 0; }
 body { font: 16px/1.45 -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, system-ui, sans-serif; -webkit-font-smoothing: antialiased; -webkit-touch-callout: none; }
 button, a, nav, header { user-select: none; -webkit-user-select: none; }
 input, textarea { user-select: text; -webkit-user-select: text; }
