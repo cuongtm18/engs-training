@@ -114,7 +114,10 @@ async function viaGemini(env: Env, prompt: string): Promise<CheckResult> {
       else if (status && status !== 429 && status < 500) break
     }
   }
-  throw new Error(`gemini: ${errors.join(', ') || 'không có model nào dùng được với key này'}`)
+  const hint = errors.some((m) => m.endsWith(' 402'))
+    ? ' (402: project của key này đang ở gói trả phí và hết credit; hãy dùng key của project không gắn billing để được free)'
+    : ''
+  throw new Error(`gemini: ${errors.join(', ') || 'không có model nào dùng được với key này'}${hint}`)
 }
 
 async function viaWorkersAi(env: Env, prompt: string): Promise<CheckResult> {
