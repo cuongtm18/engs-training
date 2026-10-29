@@ -64,8 +64,7 @@ function parseResult(raw: unknown): Omit<CheckResult, 'engine'> | null {
   }
 }
 
-async function viaGemini(env: Env, prompt: string): Promise<CheckResult> {
-  const model = env.GEMINI_MODEL || 'gemini-2.5-flash'
+async function callGemini(env: Env, model: string, prompt: string): Promise<CheckResult> {
   const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY! },
@@ -84,16 +83,30 @@ async function viaGemini(env: Env, prompt: string): Promise<CheckResult> {
           },
           required: ['verdict', 'natural', 'explanation'],
         },
-        thinkingConfig: { thinkingBudget: 0 },
       },
     }),
-    signal: AbortSignal.timeout(15_000),
+    signal: AbortSignal.timeout(20_000),
   })
-  if (!res.ok) throw new Error(`gemini ${res.status}`)
+  if (!res.ok) throw Object.assign(new Error(`${model} ${res.status}`), { status: res.status })
   const data: any = await res.json()
   const parsed = parseResult(data?.candidates?.[0]?.content?.parts?.[0]?.text)
-  if (!parsed) throw new Error('gemini: bad output')
+  if (!parsed) throw new Error(`${model}: bad output`)
   return { ...parsed, engine: 'gemini' }
+}
+
+// Thử lần lượt các model; chỉ chuyển sang model kế tiếp khi model không tồn tại (404), hết hạn mức (429) hoặc quá tải (5xx).
+async function viaGemini(env: Env, prompt: string): Promise<CheckResult> {
+  const errors: string[] = []
+  for (const model of await pickGeminiModels(env)) {
+    try {
+      return await callGemini(env, model, prompt)
+    } catch (e) {
+      errors.push((e as Error).message)
+      const status = (e as { status?: number }).status
+      if (status && status !== 404 && status !== 429 && status < 500) break
+    }
+  }
+  throw new Error(`gemini: ${errors.join(', ')}`)
 }
 
 async function viaWorkersAi(env: Env, prompt: string): Promise<CheckResult> {

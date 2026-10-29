@@ -5,12 +5,12 @@ interface Env {
   AI?: unknown
 }
 
-// Chỉ trả về cờ true/false, không lộ giá trị bí mật.
-export default defineEventHandler((event) => {
+// Chỉ trả về cờ true/false và tên model, không lộ giá trị bí mật.
+export default defineEventHandler(async (event) => {
   const env = ((event.context as any).cloudflare?.env ?? process.env) as Env
   return {
     gemini: Boolean(env.GEMINI_API_KEY),
-    geminiModel: env.GEMINI_MODEL || 'gemini-2.5-flash',
+    geminiModels: env.GEMINI_API_KEY ? await pickGeminiModels(env) : [],
     workersAi: Boolean(env.AI),
     accessCodeRequired: Boolean(env.ACCESS_CODE),
   }
