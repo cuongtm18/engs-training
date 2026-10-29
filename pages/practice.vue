@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import sentences from '~/data/sentences.json'
 import type { CheckResult, Sentence } from '~/utils/types'
 
 const route = useRoute()
 const store = useStore()
+const api = useApi()
+const { all } = useSentences()
 const settings = computed(() => store.state.value.settings)
 
 type Phase = 'answer' | 'checking' | 'result' | 'done'
@@ -13,29 +14,22 @@ const index = ref(0)
 const phase = ref<Phase>('answer')
 const answer = ref('')
 const result = ref<CheckResult | null>(null)
-const revealed = ref(false)
-const elapsed = ref(0)
 const requeued = new Set<string>()
 const tally = reactive({ perfect: 0, good: 0, wrong: 0 })
 const input = ref<HTMLTextAreaElement>()
 
-let started = 0
-let timer: ReturnType<typeof setInterval> | undefined
-
 const current = computed(() => queue.value[index.value])
-const remaining = computed(() => Math.max(0, settings.value.seconds - elapsed.value))
-const progress = computed(() => Math.min(100, (elapsed.value / settings.value.seconds) * 100))
-const late = computed(() => elapsed.value > settings.value.seconds)
+const topic = computed(() => topicById(String(route.query.t ?? '')))
+const verdict = computed(() => (result.value ? verdictOf(result.value) : 'wrong'))
 
 function build() {
-  const topics = String(route.query.t ?? '').split(',').filter(Boolean)
-  const levels = String(route.query.l ?? '1,2,3').split(',').map(Number)
-  const pool = (sentences as Sentence[]).filter((s) => topics.includes(s.t) && levels.includes(s.l))
+  const t = String(route.query.t ?? 'all')
+  const pool = all.value.filter((s) => t === 'all' || s.t === t)
   const now = Date.now()
   const cards = store.state.value.cards
+  const size = settings.value.sessionSize
   const due = shuffle(pool.filter((s) => cards[s.id] && cards[s.id]!.due <= now))
   const fresh = shuffle(pool.filter((s) => !cards[s.id]))
-  const size = settings.value.sessionSize
   const picked = due.slice(0, size)
   picked.push(...fresh.slice(0, Math.min(size - picked.length, settings.value.dailyNew)))
   // chưa đủ thì lấy thêm các câu chưa tới hạn để luôn có bài luyện
@@ -49,35 +43,18 @@ function build() {
 function beginCard() {
   answer.value = ''
   result.value = null
-  revealed.value = false
-  elapsed.value = 0
   phase.value = 'answer'
-  started = performance.now()
-  clearInterval(timer)
-  timer = setInterval(() => (elapsed.value = (performance.now() - started) / 1000), 100)
   nextTick(() => input.value?.focus())
 }
 
-function stopTimer() {
-  clearInterval(timer)
-  elapsed.value = (performance.now() - started) / 1000
-}
-
-function errorDetail(e: any): string {
-  const detail = e?.data?.data?.detail
-  if (detail) return detail
-  const code = e?.statusCode ?? e?.response?.status
-  if (code) return `Server trả về lỗi ${code}.`
-  return 'Không kết nối được tới server (có thể đang offline).'
-}
-
-function offlineVerdict(s: Sentence, text: string, reason: string): CheckResult {
-  const { ref } = diffWords(text, closestAnswer(text, s))
-  const ratio = ref.filter((t) => t.ok).length / Math.max(ref.length, 1)
+function offlineResult(s: Sentence, text: string, reason: string): CheckResult {
+  const ratio = overlapRatio(text, s)
+  const ok = ratio >= 0.7
   return {
-    verdict: ratio >= 0.85 ? 'good' : 'wrong',
-    natural: closestAnswer(text, s),
-    explanation: `${reason} App chỉ so sánh với đáp án mẫu.`,
+    structureOk: ok,
+    naturalness: ok ? Math.round(ratio * 100) : 0,
+    natural: s.en,
+    explanation: `${reason} App chỉ ước lượng bằng cách so với câu mẫu, điểm chỉ mang tính tham khảo.`,
     engine: 'offline',
   }
 }
@@ -86,10 +63,9 @@ async function submit() {
   const s = current.value
   const text = answer.value.trim()
   if (!s || !text || phase.value !== 'answer') return
-  stopTimer()
 
   if (matchesAny(text, s)) {
-    finish({ verdict: 'perfect', natural: text, explanation: 'Chuẩn rồi! Câu này đúng và tự nhiên.', engine: 'local' })
+    finish({ structureOk: true, naturalness: 100, natural: text, explanation: 'Chuẩn rồi! Câu này đúng và rất tự nhiên.', engine: 'local' })
     return
   }
 
@@ -99,16 +75,11 @@ async function submit() {
   if (cached) return finish(cached)
 
   try {
-    const res = await $fetch<CheckResult>('/api/check', {
-      method: 'POST',
-      headers: settings.value.accessCode ? { 'x-access-code': settings.value.accessCode } : {},
-      body: { vi: s.vi, answer: text, reference: s.en, alternatives: s.alt ?? [] },
-      timeout: 20_000,
-    })
+    const res = await api.check(s, text)
     store.state.value.cache[ck] = res
     finish(res)
   } catch (e) {
-    finish(offlineVerdict(s, text, errorDetail(e)))
+    finish(offlineResult(s, text, errorDetail(e)))
   }
 }
 
@@ -116,10 +87,10 @@ function finish(res: CheckResult) {
   const s = current.value!
   result.value = res
   phase.value = 'result'
-  tally[res.verdict]++
-  const quality = res.verdict === 'wrong' ? 0 : res.verdict === 'perfect' && !late.value ? 2 : 1
-  store.grade(s.id, quality)
-  if (quality === 0 && !requeued.has(s.id)) {
+  const v = verdictOf(res)
+  tally[v]++
+  store.grade(s.id, v === 'perfect' ? 2 : v === 'good' ? 1 : 0)
+  if (v === 'wrong' && !requeued.has(s.id)) {
     requeued.add(s.id)
     queue.value.push(s)
   }
@@ -128,14 +99,11 @@ function finish(res: CheckResult) {
 function reveal() {
   const s = current.value
   if (!s || phase.value !== 'answer') return
-  stopTimer()
-  revealed.value = true
-  finish({ verdict: 'wrong', natural: s.en, explanation: 'Bạn đã xem đáp án. Câu này sẽ quay lại sớm để ôn.', engine: 'local' })
+  finish({ structureOk: false, naturalness: 0, natural: s.en, explanation: 'Bạn đã xem đáp án. Câu này sẽ quay lại sớm để ôn.', engine: 'local' })
 }
 
 function next() {
   if (index.value + 1 >= queue.value.length) {
-    clearInterval(timer)
     phase.value = 'done'
     return
   }
@@ -163,12 +131,6 @@ function onKey(e: KeyboardEvent) {
   }
 }
 
-const diff = computed(() => {
-  const s = current.value
-  if (!s || !answer.value.trim() || phase.value !== 'result' || revealed.value) return null
-  return diffWords(answer.value, closestAnswer(answer.value, s)).user
-})
-
 onMounted(() => {
   build()
   if (!queue.value.length) return navigateTo('/')
@@ -176,12 +138,12 @@ onMounted(() => {
   window.addEventListener('keydown', onKey)
 })
 onBeforeUnmount(() => {
-  clearInterval(timer)
   window.removeEventListener('keydown', onKey)
   if (import.meta.client && 'speechSynthesis' in window) speechSynthesis.cancel()
 })
 
-const verdictText = { perfect: 'Tuyệt vời! 🎉', good: 'Gần đúng rồi 👍', wrong: 'Chưa đúng 💪' }
+const title = { perfect: 'Tuyệt vời! 🎉', good: 'Đúng rồi, nói tự nhiên hơn nữa nhé 👍', wrong: 'Chưa đúng cấu trúc 💪' }
+const levelText = (n: number) => (n >= 90 ? 'Như người bản xứ' : n >= 70 ? 'Khá tự nhiên' : n >= 40 ? 'Hơi gượng' : 'Cần chỉnh nhiều')
 </script>
 
 <template>
@@ -193,12 +155,8 @@ const verdictText = { perfect: 'Tuyệt vời! 🎉', good: 'Gần đúng rồi 
     </header>
 
     <section class="card q">
-      <div class="row between">
-        <span class="muted">Câu {{ index + 1 }}</span>
-        <span v-if="phase === 'answer'" class="time" :class="{ late }">{{ late ? 'Chậm rồi!' : Math.ceil(remaining) + 's' }}</span>
-      </div>
+      <span class="muted">{{ topic ? topic.emoji + ' ' + topic.label : 'Ôn tập' }} · Câu {{ index + 1 }}</span>
       <p class="vi">{{ current.vi }}</p>
-      <div v-if="phase === 'answer'" class="timebar"><i :class="{ late }" :style="{ width: 100 - progress + '%' }" /></div>
 
       <textarea
         ref="input"
@@ -220,15 +178,32 @@ const verdictText = { perfect: 'Tuyệt vời! 🎉', good: 'Gần đúng rồi 
       <div v-else-if="phase === 'checking'" class="muted checking">Đang chấm bài…</div>
     </section>
 
-    <section v-if="phase === 'result' && result" class="card res" :class="result.verdict">
+    <section v-if="phase === 'result' && result" class="card res" :class="verdict">
       <div class="row between">
-        <h2>{{ verdictText[result.verdict] }}</h2>
+        <h2>{{ title[verdict] }}</h2>
         <span v-if="result.engine === 'offline'" class="tag">offline</span>
       </div>
 
-      <p v-if="diff" class="diff">
-        <template v-for="(t, i) in diff" :key="i"><span :class="t.ok ? 'ok' : 'bad'">{{ t.text }}</span>{{ ' ' }}</template>
-      </p>
+      <div class="step">
+        <div class="row">
+          <span class="dot" :class="result.structureOk ? 'ok' : 'no'">{{ result.structureOk ? '✓' : '✕' }}</span>
+          <div class="grow">
+            <b>Bước 1 · Cấu trúc và ý nghĩa</b>
+            <div class="muted small">{{ result.structureOk ? 'Đúng cấu trúc, đủ ý' : 'Chưa đúng cấu trúc hoặc chưa đủ ý' }}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="step" :class="{ locked: !result.structureOk }">
+        <div class="row">
+          <span class="dot" :class="result.structureOk ? (result.naturalness >= 80 ? 'ok' : 'mid') : 'lock'">{{ result.structureOk ? '%' : '🔒' }}</span>
+          <div class="grow">
+            <b>Bước 2 · Độ tự nhiên<template v-if="result.structureOk"> · {{ result.naturalness }}%</template></b>
+            <div v-if="result.structureOk" class="meter"><i :style="{ width: result.naturalness + '%' }" :class="result.naturalness >= 80 ? 'hi' : result.naturalness >= 50 ? 'mid' : 'lo'" /></div>
+            <div class="muted small">{{ result.structureOk ? levelText(result.naturalness) : 'Sửa cấu trúc trước, rồi mới chấm độ tự nhiên' }}</div>
+          </div>
+        </div>
+      </div>
 
       <div class="natural">
         <div class="muted small">Cách nói tự nhiên</div>
@@ -255,8 +230,8 @@ const verdictText = { perfect: 'Tuyệt vời! 🎉', good: 'Gần đúng rồi 
   <section v-else-if="phase === 'done'" class="card done">
     <h1>Xong lượt luyện! 🎊</h1>
     <div class="sum">
-      <div><b>{{ tally.perfect }}</b><span class="muted">tuyệt vời</span></div>
-      <div><b>{{ tally.good }}</b><span class="muted">gần đúng</span></div>
+      <div><b>{{ tally.perfect }}</b><span class="muted">rất tự nhiên</span></div>
+      <div><b>{{ tally.good }}</b><span class="muted">đúng, cần tự nhiên hơn</span></div>
       <div><b>{{ tally.wrong }}</b><span class="muted">cần ôn lại</span></div>
     </div>
     <p class="muted">🔥 Chuỗi hiện tại: {{ store.streak.value }} ngày · Hôm nay: {{ store.today.value }} câu</p>
@@ -274,11 +249,6 @@ const verdictText = { perfect: 'Tuyệt vời! 🎉', good: 'Gần đúng rồi 
 .between { justify-content: space-between; }
 .q { display: flex; flex-direction: column; gap: 12px; margin-bottom: 14px; }
 .vi { font-size: 1.35rem; font-weight: 600; margin: 0; line-height: 1.4; }
-.time { font-variant-numeric: tabular-nums; font-weight: 700; }
-.time.late { color: var(--bad); }
-.timebar { height: 6px; background: var(--soft); border-radius: 99px; overflow: hidden; }
-.timebar i { display: block; height: 100%; background: var(--good); transition: width .1s linear; }
-.timebar i.late { background: var(--bad); }
 .actions .btn { flex-shrink: 0; }
 .actions .grow { flex: 1 1 140px; }
 .checking { text-align: center; padding: 8px; }
@@ -286,9 +256,17 @@ const verdictText = { perfect: 'Tuyệt vời! 🎉', good: 'Gần đúng rồi 
 .res.perfect { background: var(--good-bg); border-color: var(--good); }
 .res.good { background: var(--warn-bg); border-color: var(--warn); }
 .res.wrong { background: var(--bad-bg); border-color: var(--bad); }
-.diff { margin: 0; font-size: 1.05rem; }
-.diff .ok { color: var(--good); }
-.diff .bad { color: var(--bad); text-decoration: line-through; text-decoration-thickness: 2px; }
+.step { display: flex; flex-direction: column; gap: 6px; }
+.step.locked { opacity: .65; }
+.dot { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; flex-shrink: 0; background: var(--soft); }
+.dot.ok { background: var(--good); color: #fff; }
+.dot.no { background: var(--bad); color: #fff; }
+.dot.mid { background: var(--warn); color: #fff; }
+.meter { height: 8px; background: var(--soft); border-radius: 99px; overflow: hidden; margin: 6px 0 4px; }
+.meter i { display: block; height: 100%; border-radius: 99px; transition: width .4s; }
+.meter i.hi { background: var(--good); }
+.meter i.mid { background: var(--warn); }
+.meter i.lo { background: var(--bad); }
 .natural b { font-size: 1.1rem; }
 .small { font-size: .8rem; }
 .expl, .note { margin: 0; }
@@ -299,4 +277,5 @@ const verdictText = { perfect: 'Tuyệt vời! 🎉', good: 'Gần đúng rồi 
 .done { text-align: center; display: flex; flex-direction: column; gap: 14px; margin-top: 40px; }
 .sum { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .sum b { display: block; font-size: 1.8rem; }
+.sum span { font-size: .8rem; }
 </style>

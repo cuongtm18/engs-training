@@ -4,7 +4,7 @@ const s = computed(() => store.state.value.settings)
 const msg = ref('')
 const fileInput = ref<HTMLInputElement>()
 
-function num(e: Event, key: 'seconds' | 'sessionSize' | 'dailyNew', min: number, max: number) {
+function num(e: Event, key: 'sessionSize' | 'dailyNew', min: number, max: number) {
   const v = Math.min(max, Math.max(min, Number((e.target as HTMLInputElement).value) || min))
   store.setSettings({ [key]: v })
 }
@@ -44,13 +44,10 @@ function doReset() {
   </header>
 
   <section class="card f">
-    <label>Thời gian cho mỗi câu (giây)
-      <input type="number" inputmode="numeric" :value="s.seconds" @change="num($event, 'seconds', 5, 120)" />
-    </label>
     <label>Số câu mỗi lượt
       <input type="number" inputmode="numeric" :value="s.sessionSize" @change="num($event, 'sessionSize', 3, 50)" />
     </label>
-    <label>Số câu mới tối đa mỗi lượt
+    <label>Số câu mới tối đa mỗi lượt luyện
       <input type="number" inputmode="numeric" :value="s.dailyNew" @change="num($event, 'dailyNew', 0, 100)" />
     </label>
     <label>Mã truy cập (nếu bạn đã đặt ACCESS_CODE trên server)

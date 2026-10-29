@@ -1,4 +1,4 @@
-import type { CardState, CheckResult, Settings } from '~/utils/types'
+import type { CardState, CheckResult, Sentence, Settings } from '~/utils/types'
 
 const KEY = 'engs.v1'
 const INTERVAL_DAYS = [0, 1, 3, 7, 16, 35]
@@ -9,13 +9,15 @@ interface Persisted {
   days: Record<string, number>
   settings: Settings
   cache: Record<string, CheckResult>
+  custom: Sentence[]
 }
 
 const defaults = (): Persisted => ({
   cards: {},
   days: {},
   cache: {},
-  settings: { accessCode: '', seconds: 20, sessionSize: 10, dailyNew: 10 },
+  custom: [],
+  settings: { accessCode: '', sessionSize: 10, dailyNew: 10 },
 })
 
 export const dayKey = (d = new Date()) =>
@@ -27,10 +29,13 @@ function load(): Persisted {
     const raw = localStorage.getItem(KEY)
     if (!raw) return base
     const p = JSON.parse(raw) as Partial<Persisted>
+    // bỏ kết quả cache theo định dạng chấm cũ (không có structureOk)
+    const cache = Object.fromEntries(Object.entries(p.cache ?? {}).filter(([, v]) => typeof (v as CheckResult)?.structureOk === 'boolean'))
     return {
       cards: p.cards ?? {},
       days: p.days ?? {},
-      cache: p.cache ?? {},
+      cache,
+      custom: p.custom ?? [],
       settings: { ...base.settings, ...(p.settings ?? {}) },
     }
   } catch {
@@ -52,7 +57,7 @@ export function useStore() {
     }
   }
 
-  /** Cập nhật thẻ sau khi trả lời. quality: 2 = tốt & nhanh, 1 = đúng, 0 = sai. */
+  /** Cập nhật thẻ sau khi trả lời. quality: 2 = đúng và rất tự nhiên, 1 = đúng cấu trúc, 0 = sai. */
   function grade(id: string, quality: 0 | 1 | 2) {
     const c = state.value.cards[id] ?? { box: 0, due: 0, reps: 0, lapses: 0 }
     c.reps++
@@ -85,6 +90,19 @@ export function useStore() {
 
   const learned = computed(() => Object.values(state.value.cards).filter((c) => c.box >= 3).length)
 
+  function addSentence(s: Omit<Sentence, 'id' | 'custom'>): Sentence {
+    const item: Sentence = { ...s, id: `u-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`, custom: true }
+    state.value.custom.unshift(item)
+    save()
+    return item
+  }
+
+  function removeSentence(id: string) {
+    state.value.custom = state.value.custom.filter((s) => s.id !== id)
+    delete state.value.cards[id]
+    save()
+  }
+
   function setSettings(patch: Partial<Settings>) {
     Object.assign(state.value.settings, patch)
     save()
@@ -96,15 +114,15 @@ export function useStore() {
   }
 
   function exportJson() {
-    return JSON.stringify({ cards: state.value.cards, days: state.value.days, settings: state.value.settings })
+    return JSON.stringify({ cards: state.value.cards, days: state.value.days, custom: state.value.custom, settings: state.value.settings })
   }
 
   function importJson(raw: string) {
     const p = JSON.parse(raw) as Partial<Persisted>
     if (typeof p !== 'object' || !p) throw new Error('invalid')
-    state.value = { ...defaults(), cards: p.cards ?? {}, days: p.days ?? {}, settings: { ...defaults().settings, ...(p.settings ?? {}) } }
+    state.value = { ...defaults(), cards: p.cards ?? {}, days: p.days ?? {}, custom: p.custom ?? [], settings: { ...defaults().settings, ...(p.settings ?? {}) } }
     save()
   }
 
-  return { state, grade, today, streak, learned, setSettings, reset, save, exportJson, importJson }
+  return { state, grade, today, streak, learned, addSentence, removeSentence, setSettings, reset, save, exportJson, importJson }
 }

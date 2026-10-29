@@ -1,11 +1,12 @@
 export interface Sentence {
   id: string
   t: string
-  l: 1 | 2 | 3
   vi: string
   en: string
   alt?: string[]
   note?: string
+  /** Câu do người dùng tự thêm */
+  custom?: boolean
 }
 
 export interface Topic {
@@ -14,16 +15,25 @@ export interface Topic {
   emoji: string
 }
 
-export type Verdict = 'perfect' | 'good' | 'wrong'
-
+/** Kết quả chấm 2 bước: đúng cấu trúc/ý nghĩa trước, rồi mới tới độ tự nhiên. */
 export interface CheckResult {
-  verdict: Verdict
+  /** Bước 1: câu đúng ngữ pháp và đủ ý so với câu tiếng Việt */
+  structureOk: boolean
+  /** Bước 2: độ tự nhiên 0-100 (chỉ có nghĩa khi structureOk) */
+  naturalness: number
   /** Câu tự nhiên nhất mà app đề xuất */
   natural: string
   /** Giải thích ngắn bằng tiếng Việt */
   explanation: string
-  /** Nguồn chấm: local = khớp đáp án có sẵn, gemini / workers-ai = AI, offline = không gọi được AI */
+  /** local = khớp câu mẫu, gemini / workers-ai = AI, offline = không gọi được AI */
   engine: 'local' | 'gemini' | 'workers-ai' | 'offline'
+}
+
+export interface TranslateResult {
+  en: string
+  alternatives: string[]
+  note: string
+  engine: 'gemini' | 'workers-ai'
 }
 
 export interface CardState {
@@ -35,7 +45,6 @@ export interface CardState {
 
 export interface Settings {
   accessCode: string
-  seconds: number
   sessionSize: number
   dailyNew: number
 }

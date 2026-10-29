@@ -3,10 +3,11 @@
 PWA luyện phản xạ dịch **Việt → Anh** qua tình huống hằng ngày. App đưa câu tiếng Việt, bạn gõ tiếng Anh, app chấm và gợi ý cách nói tự nhiên hơn.
 
 - Nuxt 3 (SPA) + `@vite-pwa/nuxt`, deploy lên **Cloudflare Pages**
-- Hơn 170 câu mẫu trong `data/sentences.json` (7 chủ đề × 3 mức độ), tự thêm câu bằng cách sửa file này
-- Chấm 2 tầng: khớp đáp án có sẵn (không tốn AI) → nếu khác mới gọi `/api/check`
-- `/api/check`: **Gemini** (free) → dự phòng **Cloudflare Workers AI** (free) → nếu cả hai không có thì app so sánh offline với đáp án mẫu
-- Ôn tập ngắt quãng kiểu Leitner, streak, nghe phát âm (Web Speech API); tiến độ lưu trên máy (localStorage), có xuất/nhập JSON
+- Mỗi chủ đề có 2 chế độ: **📖 Học** (xem câu Việt + đáp án + cách nói khác, nghe phát âm, ẩn tiếng Anh để tự kiểm tra, tự thêm câu và AI dịch) và **✍️ Luyện tập** (nhìn câu Việt, gõ câu Anh)
+- Chấm 2 bước: (1) đúng cấu trúc và đủ ý chưa, (2) nếu đúng cấu trúc mới chấm **% độ tự nhiên**. Không bắt phải giống đáp án mẫu: AI chấp nhận mọi cách dịch đúng nghĩa; nếu khớp câu mẫu thì chấm ngay, không tốn lượt AI
+- 181 câu mẫu trong `data/sentences.json`, câu bạn tự thêm lưu trên máy (chủ đề "Câu của tôi" hoặc bất kỳ chủ đề nào)
+- `/api/check` (chấm) và `/api/translate` (dịch câu tự thêm): **Gemini** (free, tự chọn model dùng được) → dự phòng **Cloudflare Workers AI**; nếu không có AI thì app ước lượng offline
+- Ôn tập ngắt quãng kiểu Leitner, streak; tiến độ lưu trên máy (localStorage), có xuất/nhập JSON
 
 ## Chạy local
 
@@ -30,13 +31,14 @@ Biến tùy chọn: `GEMINI_MODEL` (mặc định `gemini-2.5-flash`), `WORKERS_
 
 ## Thêm câu mới
 
-Mỗi phần tử trong `data/sentences.json`:
+- Trong app: vào **📖 Học** của một chủ đề → **＋ Thêm câu của bạn**, gõ câu tiếng Việt, bấm dịch rồi lưu.
+- Trong code: thêm vào `data/sentences.json`:
 
 ```json
-{ "id": "cafe-21", "t": "cafe", "l": 2, "vi": "…", "en": "…", "alt": ["…"], "note": "…" }
+{ "id": "cafe-21", "t": "cafe", "vi": "…", "en": "…", "alt": ["…"], "note": "…" }
 ```
 
-`t` là id chủ đề trong `utils/topics.ts`, `l` là mức 1-3, `alt` là các cách nói khác cũng được tính đúng.
+`t` là id chủ đề trong `utils/topics.ts`, `alt` là các cách nói khác cũng được tính đúng.
 
 ## Deploy thủ công từ máy
 
