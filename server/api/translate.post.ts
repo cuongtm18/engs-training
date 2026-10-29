@@ -9,6 +9,8 @@ For every line return one element with i (the line number), vi and en:
 - If the line is Vietnamese: vi = the original sentence, en = a NATURAL English translation, the way a native speaker would really say it (not word for word).
 - Keep the same count and order: exactly one output element per input line.
 
+Write Vietnamese with correct Unicode diacritics (e.g. "tôi đang đi chơi"), never without accents and never mixed with random letters.
+
 Reply with JSON that matches the schema and nothing else.`
 
 const SCHEMA = {
@@ -43,7 +45,7 @@ export default defineEventHandler(async (event) => {
       const idx = Number.isInteger(it?.i) ? it.i - 1 : pos
       const vi = String(it?.vi ?? '').trim().slice(0, 400)
       const en = String(it?.en ?? '').trim().slice(0, 400)
-      if (idx >= 0 && idx < lines.length && vi && en && !out[idx]!.en) {
+      if (idx >= 0 && idx < lines.length && vi && en && !out[idx]!.en && !looksGarbledVi(vi)) {
         out[idx] = { vi, en }
         hit++
       }

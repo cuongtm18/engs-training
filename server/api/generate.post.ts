@@ -50,7 +50,7 @@ export default defineEventHandler(async (event) => {
       const en = String(it?.en ?? '').trim().slice(0, 300)
       const vi = String(it?.vi ?? '').trim().slice(0, 300)
       const key = en.toLowerCase()
-      if (!en || !vi || seen.has(key)) continue
+      if (!en || !vi || seen.has(key) || looksGarbledVi(vi)) continue
       seen.add(key)
       out.push({ vi, en })
     }
