@@ -27,7 +27,7 @@ Không có key thì app vẫn chạy, chỉ là phần chấm câu khác đáp �
 4. **Settings → Bindings**: thêm **Workers AI** với tên `AI` để làm dự phòng (có sẵn trong `wrangler.toml`).
 5. Mở `https://<tên-project>.pages.dev` trên điện thoại → "Thêm vào màn hình chính".
 
-Biến tùy chọn: `GEMINI_MODEL` (mặc định `gemini-2.5-flash`), `WORKERS_AI_MODEL` (mặc định `@cf/meta/llama-3.1-8b-instruct`).
+Biến tùy chọn: `GEMINI_MODEL` (mặc định `gemini-2.5-flash`), `WORKERS_AI_MODEL` (mặc định model tự chọn trong danh sách còn hoạt động).
 
 ## Thêm câu mới
 

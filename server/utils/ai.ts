@@ -56,18 +56,33 @@ function extractJson(raw: unknown): any | null {
   }
 }
 
-async function callGemini(env: AiEnv, model: string, system: string, prompt: string, schema: JsonSchema, temperature: number) {
+async function callGemini(env: AiEnv, model: string, system: string, prompt: string, schema: JsonSchema, temperature: number, useSchema = true) {
+  // Nếu Google từ chối schema (400) thì mô tả schema ngay trong lời nhắc thay vì dùng responseSchema.
+  const sys = useSchema ? system : `${system}\n\nTrả về đúng một đối tượng JSON theo schema sau:\n${JSON.stringify(schema)}`
   const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY! },
     body: JSON.stringify({
-      systemInstruction: { parts: [{ text: system }] },
+      systemInstruction: { parts: [{ text: sys }] },
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      generationConfig: { temperature, responseMimeType: 'application/json', responseSchema: toGeminiSchema(schema) },
+      generationConfig: {
+        temperature,
+        responseMimeType: 'application/json',
+        ...(useSchema ? { responseSchema: toGeminiSchema(schema) } : {}),
+      },
     }),
-    signal: AbortSignal.timeout(20_000),
+    signal: AbortSignal.timeout(25_000),
   })
-  if (!res.ok) throw Object.assign(new Error(`${model} ${res.status}`), { status: res.status })
+  if (!res.ok) {
+    if (res.status === 400 && useSchema) return callGemini(env, model, system, prompt, schema, temperature, false)
+    let msg = ''
+    try {
+      msg = String(((await res.json()) as any)?.error?.message ?? '').replace(/\s+/g, ' ').slice(0, 160)
+    } catch {
+      /* không đọc được nội dung lỗi */
+    }
+    throw Object.assign(new Error(`${model} ${res.status}${msg ? ` (${msg})` : ''}`), { status: res.status })
+  }
   const data: any = await res.json()
   const obj = extractJson(data?.candidates?.[0]?.content?.parts?.[0]?.text)
   if (!obj) throw new Error(`${model}: bad output`)
@@ -94,26 +109,48 @@ async function viaGemini(env: AiEnv, system: string, prompt: string, schema: Jso
       else if (status && status !== 429 && status < 500) break
     }
   }
-  const hint = errors.some((m) => m.endsWith(' 402'))
+  const hint = errors.some((m) => / 402\b/.test(m))
     ? ' (402: project của key này đang ở gói trả phí và hết credit; hãy dùng key của project không gắn billing để được free)'
     : ''
   throw new Error(`gemini: ${errors.join(', ') || 'không có model nào dùng được với key này'}${hint}`)
 }
 
+// Cloudflare gỡ model theo lịch (llama-3.1-8b-instruct đã bị gỡ 2026-05-30) nên thử lần lượt vài model.
+// Đặt WORKERS_AI_MODEL để chọn model riêng, nó luôn được thử đầu tiên.
+const WORKERS_AI_MODELS = [
+  '@cf/meta/llama-3.1-8b-instruct-fp8',
+  '@cf/meta/llama-3.1-8b-instruct-fast',
+  '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
+  '@cf/mistralai/mistral-small-3.1-24b-instruct',
+]
+const aiUnavailable = new Map<string, number>()
+
 async function viaWorkersAi(env: AiEnv, system: string, prompt: string, schema: JsonSchema, temperature: number, maxTokens: number) {
-  const model = env.WORKERS_AI_MODEL || '@cf/meta/llama-3.1-8b-instruct'
-  const out = await env.AI!.run(model, {
-    messages: [
-      { role: 'system', content: system },
-      { role: 'user', content: prompt },
-    ],
-    temperature,
-    max_tokens: maxTokens,
-    response_format: { type: 'json_schema', json_schema: schema },
-  })
-  const obj = extractJson(out?.response ?? out)
-  if (!obj) throw new Error('workers-ai: bad output')
-  return obj
+  const errors: string[] = []
+  const now = Date.now()
+  const models = [...new Set([env.WORKERS_AI_MODEL?.trim(), ...WORKERS_AI_MODELS].filter(Boolean) as string[])]
+  for (const model of models) {
+    if ((aiUnavailable.get(model) ?? 0) > now) continue
+    try {
+      const out = await env.AI!.run(model, {
+        messages: [
+          { role: 'system', content: system },
+          { role: 'user', content: prompt },
+        ],
+        temperature,
+        max_tokens: maxTokens,
+        response_format: { type: 'json_schema', json_schema: schema },
+      })
+      const obj = extractJson(out?.response ?? out)
+      if (obj) return obj
+      errors.push(`${model}: bad output`)
+    } catch (e) {
+      const msg = (e as Error).message ?? String(e)
+      errors.push(`${model}: ${msg.replace(/\s+/g, ' ').slice(0, 120)}`)
+      if (/deprecat|not found|no such model|unavailable|5007|5028/i.test(msg)) aiUnavailable.set(model, now + SKIP_MS)
+    }
+  }
+  throw new Error(`workers-ai: ${errors.join('; ')}`)
 }
 
 /**
