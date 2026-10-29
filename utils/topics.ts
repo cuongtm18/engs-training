@@ -7,6 +7,7 @@ export const TOPICS: Topic[] = [
   { id: 'friends', label: 'Bạn bè', emoji: '💬' },
   { id: 'shop', label: 'Mua sắm', emoji: '🛍️' },
   { id: 'daily', label: 'Đời sống', emoji: '🏠' },
+  { id: 'dir', label: 'Hỏi đường', emoji: '🧭' },
 ]
 
 export const LEVELS = [

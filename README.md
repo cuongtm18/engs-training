@@ -3,7 +3,7 @@
 PWA luyện phản xạ dịch **Việt → Anh** qua tình huống hằng ngày. App đưa câu tiếng Việt, bạn gõ tiếng Anh, app chấm và gợi ý cách nói tự nhiên hơn.
 
 - Nuxt 3 (SPA) + `@vite-pwa/nuxt`, deploy lên **Cloudflare Pages**
-- 120 câu mẫu trong `data/sentences.json` (6 chủ đề × 3 mức độ), tự thêm câu bằng cách sửa file này
+- Hơn 170 câu mẫu trong `data/sentences.json` (7 chủ đề × 3 mức độ), tự thêm câu bằng cách sửa file này
 - Chấm 2 tầng: khớp đáp án có sẵn (không tốn AI) → nếu khác mới gọi `/api/check`
 - `/api/check`: **Gemini** (free) → dự phòng **Cloudflare Workers AI** (free) → nếu cả hai không có thì app so sánh offline với đáp án mẫu
 - Ôn tập ngắt quãng kiểu Leitner, streak, nghe phát âm (Web Speech API); tiến độ lưu trên máy (localStorage), có xuất/nhập JSON
