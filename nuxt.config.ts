@@ -31,7 +31,8 @@ export default defineNuxtConfig({
   },
 
   pwa: {
-    registerType: 'autoUpdate',
+    registerType: 'prompt',
+    client: { periodicSyncForUpdates: 600 },
     manifest: {
       name: 'English Reflex',
       short_name: 'EN Reflex',

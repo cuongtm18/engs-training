@@ -15,6 +15,7 @@ onBeforeUnmount(() => stopTextUndo?.())
   <TabBar v-if="showTabs" />
   <ConfirmHost />
   <UndoHost />
+  <UpdatePrompt />
 </template>
 
 <style>
