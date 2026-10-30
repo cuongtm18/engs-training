@@ -18,6 +18,9 @@ const answer = ref('')
 const result = ref<CheckResult | null>(null)
 const requeued = new Set<string>()
 const tally = reactive({ perfect: 0, good: 0, wrong: 0 })
+const praise = ref('')
+const donePhrase = ref('')
+let combo = 0
 const input = ref<HTMLTextAreaElement>()
 
 const current = computed(() => queue.value[index.value])
@@ -101,7 +104,7 @@ async function submit() {
   }
 }
 
-function finish(res: CheckResult) {
+function finish(res: CheckResult, opts: { peek?: boolean } = {}) {
   const s = current.value!
   // Guard (also covers results cached by older versions): the natural version must be English.
   if (hasVietnamese(res.natural)) res = { ...res, natural: s.en }
@@ -109,6 +112,12 @@ function finish(res: CheckResult) {
   phase.value = 'result'
   const v = verdictOf(res)
   tally[v]++
+  combo = res.structureOk ? combo + 1 : 0
+  praise.value = opts.peek
+    ? pickPraise('peek')
+    : v === 'perfect'
+      ? (comboPraise(combo) ?? pickPraise(res.engine === 'local' ? 'exact' : 'perfect'))
+      : pickPraise(v)
   store.grade(s.id, v === 'perfect' ? 2 : v === 'good' ? 1 : 0)
   if (v === 'wrong' && !requeued.has(s.id)) {
     requeued.add(s.id)
@@ -119,11 +128,12 @@ function finish(res: CheckResult) {
 function reveal() {
   const s = current.value
   if (!s || phase.value !== 'answer') return
-  finish({ structureOk: false, naturalness: 0, natural: s.en, explanation: 'Bạn đã xem đáp án. Câu này sẽ quay lại sớm để ôn.', engine: 'local' })
+  finish({ structureOk: false, naturalness: 0, natural: s.en, explanation: 'Bạn đã xem đáp án. Câu này sẽ quay lại sớm để ôn.', engine: 'local' }, { peek: true })
 }
 
 function next() {
   if (index.value + 1 >= queue.value.length) {
+    donePhrase.value = donePraise(tally.perfect + tally.good, tally.perfect + tally.good + tally.wrong)
     phase.value = 'done'
     return
   }
@@ -162,7 +172,6 @@ onBeforeUnmount(() => {
   if (import.meta.client && 'speechSynthesis' in window) speechSynthesis.cancel()
 })
 
-const title = { perfect: 'Tuyệt vời! 🎉', good: 'Đúng rồi, nói tự nhiên hơn nữa nhé 👍', wrong: 'Chưa đúng, thử lại nhé 💪' }
 const levelText = (n: number) => (n >= 90 ? 'Như người bản xứ' : n >= 70 ? 'Khá tự nhiên' : n >= 40 ? 'Hơi gượng' : 'Cần chỉnh nhiều')
 </script>
 
@@ -200,7 +209,7 @@ const levelText = (n: number) => (n >= 90 ? 'Như người bản xứ' : n >= 70
 
     <section v-if="phase === 'result' && result" class="card res" :class="verdict">
       <div class="row between">
-        <h2>{{ title[verdict] }}</h2>
+        <h2>{{ praise }}</h2>
         <span v-if="result.engine === 'offline'" class="tag">offline</span>
       </div>
 
@@ -249,6 +258,7 @@ const levelText = (n: number) => (n >= 90 ? 'Như người bản xứ' : n >= 70
 
   <section v-else-if="phase === 'done'" class="card done">
     <h1>Round complete! 🎊</h1>
+    <p class="praise">{{ donePhrase }}</p>
     <div class="sum">
       <div><b>{{ tally.perfect }}</b><span class="muted">rất tự nhiên</span></div>
       <div><b>{{ tally.good }}</b><span class="muted">cần tự nhiên hơn</span></div>
@@ -300,6 +310,8 @@ const levelText = (n: number) => (n >= 90 ? 'Như người bản xứ' : n >= 70
 .alts { font-size: .95rem; }
 .alts summary { cursor: pointer; color: var(--muted); padding: 12px 0; margin: -6px 0; }
 .alts ul { margin: 6px 0 0; padding-left: 20px; }
+.praise { margin: -6px 0 0; font-weight: 650; font-size: 1.02rem; text-wrap: balance; }
+.res h2 { text-wrap: balance; }
 .done { text-align: center; display: flex; flex-direction: column; gap: 16px; margin-top: 12vh; padding: 22px 18px; }
 .sum { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .sum > div { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 12px 4px; border-radius: 16px; background: var(--soft); }
