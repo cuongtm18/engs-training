@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Sentence } from '~/utils/types'
+import { useReorder } from '~/composables/useReorder'
 
 const route = useRoute()
 const router = useRouter()

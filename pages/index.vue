@@ -54,7 +54,7 @@ function pressStart(t: Topic) {
   pressed = false
   pressTimer = setTimeout(() => {
     pressed = true
-    navigator.vibrate?.(14)
+    haptic(14)
     openEdit(t)
   }, 520)
 }

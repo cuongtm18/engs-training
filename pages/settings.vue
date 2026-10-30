@@ -9,7 +9,7 @@ const fileInput = ref<HTMLInputElement>()
 
 function step(key: 'sessionSize' | 'dailyNew', delta: number, min: number, max: number) {
   store.setSettings({ [key]: Math.min(max, Math.max(min, s.value[key] + delta)) })
-  navigator.vibrate?.(6)
+  haptic(6)
 }
 
 function doExport() {

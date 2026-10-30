@@ -31,7 +31,7 @@ watch(
   (open) => {
     if (!import.meta.client) return
     document.documentElement.style.overflow = open ? 'hidden' : ''
-    if (open) navigator.vibrate?.(8)
+    if (open) haptic(8)
   },
 )
 onMounted(() => window.addEventListener('keydown', onKey))

@@ -41,7 +41,7 @@ export function useUndo() {
         const t = toasts.value.find((x) => x.id === id)
         if (t) t.armed = true
       }, ARM_MS)
-      navigator.vibrate?.(8)
+      haptic(8)
       return id
     },
     dismiss,
@@ -53,7 +53,7 @@ export function useUndo() {
       t.undo = undefined
       dismiss(id)
       fn()
-      navigator.vibrate?.(12)
+      haptic(12)
     },
     /** Hoàn tác thao tác mới nhất (phím tắt Ctrl/Cmd+Z). */
     runLatest() {

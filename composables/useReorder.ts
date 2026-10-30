@@ -78,7 +78,7 @@ export function useReorder(opts: { container: Ref<HTMLElement | undefined>; ids:
     to = from
     dy.value = 0
     draggingId.value = pressId
-    navigator.vibrate?.(14)
+    haptic(14)
     document.addEventListener('keydown', onKey)
     loop()
   }
@@ -104,7 +104,7 @@ export function useReorder(opts: { container: Ref<HTMLElement | undefined>; ids:
     })
     if (idx !== to) {
       to = idx
-      navigator.vibrate?.(8)
+      haptic(8)
     }
     const push = me.height + gap
     slots.forEach((s, i) => {
