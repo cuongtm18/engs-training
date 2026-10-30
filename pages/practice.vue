@@ -88,7 +88,7 @@ async function submit() {
   }
 
   phase.value = 'checking'
-  const ck = hashKey(s.id, text)
+  const ck = hashKey('v3', s.id, text)
   const cached = store.state.value.cache[ck]
   if (cached) return finish(cached)
 

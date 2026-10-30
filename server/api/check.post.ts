@@ -21,7 +21,12 @@ Step 2, naturalness (integer 0-100): would a native speaker actually say it this
 - If structureOk is false, set naturalness to 0.
 
 natural: the single most natural ENGLISH sentence for this situation. It must be written in English only, never in Vietnamese, because the learner is translating INTO English. If the learner's sentence is already good, keep it or change it minimally.
-Only the explanation field is in VIETNAMESE (the learner is Vietnamese, level A2-B1), at most 2 short, friendly sentences. Keep English words or phrases in English when you quote them. If the structure is wrong, name the specific mistake first. If the structure is fine, say why it is not 100% natural, or give brief praise if it is natural.
+Only the explanation field is in VIETNAMESE (the learner is Vietnamese, level A2-B1), at most 2 short, friendly sentences. The explanation mixes Vietnamese and English naturally: write the sentence in Vietnamese, but EVERY English word, phrase or sentence you mention (the learner's words, the missing or wrong word, the correction, the natural version) must stay in English inside single quotes. NEVER translate a quoted English word into Vietnamese. If the structure is wrong, name the specific mistake first. If the structure is fine, say why it is not 100% natural, or give brief praise if it is natural.
+
+Example of a good explanation.
+Vietnamese sentence: "Bên bạn có cái nhỏ hơn không?" / learner wrote: "Do you have a small one" / natural: "Do you have a smaller one?"
+explanation: "Câu của bạn thiếu từ 'smaller' (dạng so sánh hơn của 'small'), nhưng vẫn hiểu được ý. Nói 'Do you have a smaller one?' sẽ đúng và tự nhiên hơn."
+Bad: "Câu của bạn thiếu từ 'nhỏ hơn'..." (the quoted word is Vietnamese instead of English).
 
 Reply with JSON that matches the schema and nothing else.`
 
