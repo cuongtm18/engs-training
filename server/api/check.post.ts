@@ -22,6 +22,7 @@ Step 2, naturalness (integer 0-100): would a native speaker actually say it this
 - 90-100: sounds native. 70-89: correct but a bit textbook or stiff. 40-69: understandable but awkward, with wrong collocations or prepositions.
 - If structureOk is false, set naturalness to 0.
 
+corrected: the learner's OWN sentence with ONLY the fixes it needs (spelling, grammar, missing or wrong words), keeping their wording and meaning as much as possible. If it is already correct, return it unchanged apart from normal capitalization and end punctuation. English only, never Vietnamese.
 natural: the single most natural ENGLISH sentence for this situation. It must be written in English only, never in Vietnamese, because the learner is translating INTO English. If the learner's sentence is already good, keep it or change it minimally.
 Only the explanation field is in VIETNAMESE (the learner is Vietnamese, level A2-B1), at most 2 short, friendly sentences. The explanation mixes Vietnamese and English naturally: write the sentence in Vietnamese, but EVERY English word, phrase or sentence you mention (the learner's words, the missing or wrong word, the correction, the natural version) must stay in English inside single quotes. NEVER translate a quoted English word into Vietnamese. If the structure is wrong, name the specific mistake first. If the structure is fine, say why it is not 100% natural, or give brief praise if it is natural.
 
@@ -37,10 +38,11 @@ const SCHEMA = {
   properties: {
     structureOk: { type: 'boolean' },
     naturalness: { type: 'integer' },
+    corrected: { type: 'string' },
     natural: { type: 'string' },
     explanation: { type: 'string' },
   },
-  required: ['structureOk', 'naturalness', 'natural', 'explanation'],
+  required: ['structureOk', 'naturalness', 'corrected', 'natural', 'explanation'],
 } as const
 
 function parse(obj: any): Omit<CheckResult, 'engine'> | null {
@@ -50,6 +52,7 @@ function parse(obj: any): Omit<CheckResult, 'engine'> | null {
   return {
     structureOk: obj.structureOk,
     naturalness: obj.structureOk ? Math.min(100, Math.max(0, n)) : 0,
+    corrected: String(obj.corrected ?? '').slice(0, 400),
     natural: String(obj.natural ?? '').slice(0, 400),
     explanation: String(obj.explanation ?? '').slice(0, 600),
   }
@@ -72,5 +75,7 @@ export default defineEventHandler(async (event) => {
   const { data, engine } = await aiJson(env, { system: SYSTEM, prompt, schema: SCHEMA, parse })
   // The model sometimes answers the "natural" field in Vietnamese. It must be English, so fall back to the reference sentence.
   if (hasVietnamese(data.natural)) data.natural = reference
+  // `corrected` must be the learner's own sentence in English; if the model slipped, fall back to the natural version.
+  if (!data.corrected || hasVietnamese(data.corrected)) data.corrected = data.natural
   return { ...data, engine } satisfies CheckResult
 })

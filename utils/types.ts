@@ -27,6 +27,8 @@ export interface CheckResult {
   structureOk: boolean
   /** Bước 2: độ tự nhiên 0-100 (chỉ có nghĩa khi structureOk) */
   naturalness: number
+  /** Câu của chính người học, chỉ sửa tối thiểu (chính tả, ngữ pháp, từ thiếu). Không có khi chấm offline. */
+  corrected?: string
   /** Câu tự nhiên nhất mà app đề xuất */
   natural: string
   /** Giải thích ngắn bằng tiếng Việt */

@@ -19,14 +19,15 @@ export function useAnswerCheck() {
 
   /** Câu "tự nhiên" bắt buộc là tiếng Anh (cũng sửa luôn kết quả cũ trong cache). */
   function sanitize(res: CheckResult, s: Sentence): CheckResult {
-    return hasVietnamese(res.natural) ? { ...res, natural: s.en } : res
+    const fixed = hasVietnamese(res.natural) ? { ...res, natural: s.en } : res
+    return fixed.corrected && hasVietnamese(fixed.corrected) ? { ...fixed, corrected: fixed.natural } : fixed
   }
 
   async function check(s: Sentence, text: string): Promise<CheckResult> {
     if (matchesAny(text, s)) {
-      return { structureOk: true, naturalness: 100, natural: text, explanation: 'Chuẩn rồi! Câu này đúng và nghe rất tự nhiên.', engine: 'local' }
+      return { structureOk: true, naturalness: 100, corrected: text, natural: text, explanation: 'Chuẩn rồi! Câu này đúng và nghe rất tự nhiên.', engine: 'local' }
     }
-    const ck = hashKey('v3', s.id, text)
+    const ck = hashKey('v4', s.id, text)
     const cached = store.state.value.cache[ck]
     if (cached) return sanitize(cached, s)
     try {

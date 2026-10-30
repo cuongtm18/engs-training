@@ -5,7 +5,7 @@ const CONTRACTIONS: [RegExp, string][] = [
   [/\bcan't\b/g, 'can not'],
   [/\bcannot\b/g, 'can not'],
   [/\bshan't\b/g, 'shall not'],
-  [/\bn't\b/g, ' not'],
+  [/n't\b/g, ' not'], // don't, isn't, doesn't, … (can't/won't are handled just above)
   [/\bi'm\b/g, 'i am'],
   [/\b(you|we|they)'re\b/g, '$1 are'],
   [/\b(i|you|he|she|we|they|it|that|there)'ll\b/g, '$1 will'],
@@ -74,3 +74,32 @@ export function overlapRatio(answer: string, s: Sentence): number {
   }
   return best
 }
+
+export interface Token {
+  text: string
+  changed: boolean
+}
+
+/** Tách câu đã sửa thành các từ và đánh dấu từ nào là mới/đã đổi so với câu người học gõ. */
+export function highlightChanges(user: string, corrected: string): Token[] {
+  const have = new Map<string, number>()
+  for (const w of normalize(user).split(' ').filter(Boolean)) have.set(w, (have.get(w) ?? 0) + 1)
+  return corrected
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((text) => {
+      // "I'm" normalizes to "i am", "I'll" to "i will": unchanged when every part was already in your sentence
+      const parts = normalize(text).split(' ').filter(Boolean)
+      if (!parts.length) return { text, changed: false }
+      const need = new Map<string, number>()
+      for (const w of parts) need.set(w, (need.get(w) ?? 0) + 1)
+      const ok = [...need].every(([w, c]) => (have.get(w) ?? 0) >= c)
+      if (!ok) return { text, changed: true }
+      for (const [w, c] of need) have.set(w, (have.get(w) ?? 0) - c)
+      return { text, changed: false }
+    })
+}
+
+/** Hai câu giống nhau sau khi chuẩn hóa (bỏ hoa/thường, dấu câu, dạng viết tắt)? */
+export const sameSentence = (a: string, b: string) => normalize(a) === normalize(b)

@@ -13,25 +13,22 @@ const topicId = computed(() => String(route.query.t ?? ''))
 const topic = computed(() => topics.byId(topicId.value))
 const list = computed(() => byTopic(topicId.value))
 
+// Left = the Vietnamese sentence. Right = your English answer with the correction right below it.
 type Msg =
-  | { id: number; kind: 'hello'; count: number }
-  | { id: number; kind: 'resume'; pos: number }
   | { id: number; kind: 'note'; text: string }
-  | { id: number; kind: 'prompt'; sentence: Sentence; n: number }
-  | { id: number; kind: 'user'; text: string; muted?: boolean }
+  | { id: number; kind: 'resume'; pos: number }
+  | { id: number; kind: 'prompt'; sentence: Sentence }
   | { id: number; kind: 'typing' }
-  | { id: number; kind: 'reply'; sentence: Sentence; result: CheckResult; praise: string }
-  | { id: number; kind: 'summary'; perfect: number; good: number; wrong: number; praise: string }
+  | { id: number; kind: 'user'; text: string; muted?: boolean; sentence: Sentence; pending: boolean; result?: CheckResult }
+  | { id: number; kind: 'summary'; perfect: number; good: number; wrong: number }
 
-type Mode = 'intro' | 'answer' | 'busy' | 'next' | 'done'
+type Mode = 'intro' | 'answer' | 'busy' | 'done'
 
 const msgs = ref<Msg[]>([])
 const mode = ref<Mode>('busy')
 const idx = ref(0)
 const text = ref('')
 const tally = reactive({ perfect: 0, good: 0, wrong: 0 })
-const attempts = new Map<string, number>()
-let combo = 0
 let uid = 0
 let alive = true
 let interacted = false
@@ -40,26 +37,21 @@ const bar = ref<HTMLElement>()
 
 const delay = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
 const n = computed(() => list.value.length)
-const progress = computed(() => (mode.value === 'done' ? 100 : ((idx.value + (mode.value === 'next' ? 1 : 0)) / Math.max(1, n.value)) * 100))
+const shown = computed(() => (mode.value === 'done' ? n.value : Math.min(n.value, idx.value + 1)))
+const progress = computed(() => (mode.value === 'done' ? 100 : (idx.value / Math.max(1, n.value)) * 100))
 
 function scrollDown() {
   if (!import.meta.client) return
   nextTick(() => requestAnimationFrame(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' })))
 }
 
-function push(m: Omit<Msg, 'id'>): number {
-  const id = ++uid
-  msgs.value.push({ ...m, id } as Msg)
+function push(m: Omit<Msg, 'id'>): Msg {
+  const msg = { ...m, id: ++uid } as Msg
+  msgs.value.push(msg)
   scrollDown()
-  return id
+  return msgs.value[msgs.value.length - 1]! // the reactive proxy, so later edits re-render
 }
 const drop = (id: number) => (msgs.value = msgs.value.filter((m) => m.id !== id))
-
-async function typing(ms: number) {
-  const id = push({ kind: 'typing' })
-  await delay(ms)
-  drop(id)
-}
 
 function focusComposer() {
   if (interacted) nextTick(() => composer.value?.focus({ preventScroll: true }))
@@ -67,17 +59,14 @@ function focusComposer() {
 
 async function ask(i: number) {
   mode.value = 'busy'
-  await typing(i === 0 ? 700 : 550)
+  const wait = push({ kind: 'typing' })
+  await delay(i === 0 ? 650 : 500)
+  drop(wait.id)
   if (!alive) return
   idx.value = i
-  push({ kind: 'prompt', sentence: list.value[i]!, n: i + 1 })
+  push({ kind: 'prompt', sentence: list.value[i]! })
   mode.value = 'answer'
   focusComposer()
-}
-
-async function begin(from: number) {
-  if (from === 0) push({ kind: 'hello', count: n.value })
-  await ask(from)
 }
 
 function start() {
@@ -85,24 +74,26 @@ function start() {
   if (pos > 0 && pos < n.value) {
     push({ kind: 'resume', pos })
     mode.value = 'intro'
-  } else begin(0)
+  } else {
+    push({ kind: 'note', text: `${n.value} ${n.value === 1 ? 'sentence' : 'sentences'} · in order` })
+    ask(0)
+  }
 }
 
 function resume(pos: number) {
   msgs.value = msgs.value.filter((m) => m.kind !== 'resume')
-  push({ kind: 'note', text: `Continuing from sentence ${pos + 1} of ${n.value}` })
-  begin(pos)
+  push({ kind: 'note', text: `Continuing from ${pos + 1} of ${n.value}` })
+  ask(pos)
 }
 
 function restart() {
   msgs.value = []
   tally.perfect = tally.good = tally.wrong = 0
-  attempts.clear()
-  combo = 0
   idx.value = 0
   text.value = ''
   store.setChatPos(topicId.value, 0)
-  begin(0)
+  push({ kind: 'note', text: `${n.value} ${n.value === 1 ? 'sentence' : 'sentences'} · in order` })
+  ask(0)
 }
 
 async function askRestart() {
@@ -113,53 +104,38 @@ async function askRestart() {
   restart()
 }
 
-function deliver(s: Sentence, res: CheckResult, peekOnly = false) {
-  const first = (attempts.get(s.id) ?? 0) === 0
-  attempts.set(s.id, (attempts.get(s.id) ?? 0) + 1)
+/** Show the correction under the answer, record the score, then bring in the next Vietnamese sentence. */
+async function settle(msg: Extract<Msg, { kind: 'user' }>, res: CheckResult) {
   const v = verdictOf(res)
-  let line: string
-  if (first) {
-    tally[v]++
-    combo = res.structureOk ? combo + 1 : 0
-    store.grade(s.id, v === 'perfect' ? 2 : v === 'good' ? 1 : 0) // only the first attempt counts towards spaced repetition
-  }
-  if (peekOnly) line = pickPraise('peek')
-  else if (v === 'perfect') line = (first ? comboPraise(combo) : null) ?? pickPraise(res.engine === 'local' ? 'exact' : 'perfect')
-  else line = pickPraise(v)
-  push({ kind: 'reply', sentence: s, result: res, praise: line })
-  if (v === 'perfect' && !peekOnly) {
-    mode.value = 'busy'
-    delay(1100).then(() => alive && next())
-  } else {
-    mode.value = 'next'
-    focusComposer()
-  }
+  tally[v]++
+  store.grade(msg.sentence.id, v === 'perfect' ? 2 : v === 'good' ? 1 : 0)
+  msg.result = res
+  msg.pending = false
+  scrollDown()
+  await delay(1100)
+  if (alive) next()
 }
 
 async function send() {
   const s = list.value[idx.value]
   const t = text.value.trim()
-  if (mode.value === 'next' && !t) return next()
-  if (!s || !t || (mode.value !== 'answer' && mode.value !== 'next')) return
+  if (!s || !t || mode.value !== 'answer') return
   interacted = true
   text.value = ''
   resizeComposer()
-  push({ kind: 'user', text: t })
   mode.value = 'busy'
-  const wait = push({ kind: 'typing' })
+  const msg = push({ kind: 'user', text: t, sentence: s, pending: true }) as Extract<Msg, { kind: 'user' }>
   const res = await checker.check(s, t)
-  if (!alive) return
-  drop(wait)
-  deliver(s, res)
+  if (alive) settle(msg, res)
 }
 
 function peekAnswer() {
   const s = list.value[idx.value]
   if (!s || mode.value !== 'answer') return
   interacted = true
-  push({ kind: 'user', text: 'Show me the answer', muted: true })
   mode.value = 'busy'
-  delay(350).then(() => alive && deliver(s, checker.peek(s), true))
+  const msg = push({ kind: 'user', text: 'Show answer', muted: true, sentence: s, pending: true }) as Extract<Msg, { kind: 'user' }>
+  delay(300).then(() => alive && settle(msg, checker.peek(s)))
 }
 
 function next() {
@@ -168,7 +144,7 @@ function next() {
   if (i >= n.value) {
     store.setChatPos(topicId.value, 0)
     mode.value = 'done'
-    push({ kind: 'summary', perfect: tally.perfect, good: tally.good, wrong: tally.wrong, praise: donePraise(tally.perfect + tally.good, tally.perfect + tally.good + tally.wrong) })
+    push({ kind: 'summary', perfect: tally.perfect, good: tally.good, wrong: tally.wrong })
     return
   }
   store.setChatPos(topicId.value, i)
@@ -189,8 +165,8 @@ function resizeComposer() {
   el.style.height = Math.min(el.scrollHeight, 132) + 'px'
 }
 
-const canType = computed(() => mode.value === 'answer' || mode.value === 'next')
-const placeholder = computed(() => (mode.value === 'next' ? 'Try again, or tap Next…' : mode.value === 'answer' ? 'Type your answer in English…' : mode.value === 'intro' ? 'Choose an option above…' : ' '))
+const canType = computed(() => mode.value === 'answer')
+const placeholder = computed(() => (mode.value === 'answer' ? 'Type your answer in English…' : mode.value === 'intro' ? 'Choose an option above…' : ' '))
 
 // The composer is fixed to the bottom of the *visible* area, so it stays above the iOS keyboard.
 const inset = ref(0)
@@ -227,6 +203,7 @@ onBeforeUnmount(() => {
     <header class="nav cnav">
       <NuxtLink :to="{ path: '/learn', query: { t: topic.id } }" class="icon-btn" aria-label="Close chat"><AppIcon name="x" :size="18" /></NuxtLink>
       <span class="title">{{ topic.emoji }} {{ topic.label }}</span>
+      <span class="count" aria-label="Progress">{{ shown }}/{{ n }}</span>
       <button class="icon-btn" aria-label="Start over" @click="askRestart"><AppIcon name="repeat" :size="18" /></button>
       <div class="prog" role="progressbar" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="Math.round(progress)"><i :style="{ width: progress + '%' }" /></div>
     </header>
@@ -234,38 +211,28 @@ onBeforeUnmount(() => {
     <main class="thread" :style="{ paddingBottom: barH + inset + 24 + 'px' }" aria-live="polite">
       <TransitionGroup name="msg" tag="div" class="msgs">
         <div v-for="m in msgs" :key="m.id" class="m" :class="[m.kind, m.kind === 'user' ? 'mine' : m.kind === 'note' ? 'center' : 'theirs']">
-          <span v-if="m.kind !== 'user' && m.kind !== 'note'" class="avatar" aria-hidden="true">{{ topic.emoji }}</span>
-
-          <div v-if="m.kind === 'hello'" class="bubble">
-            Hi! 👋 I'll send you <b>{{ m.count }}</b> Vietnamese {{ m.count === 1 ? 'sentence' : 'sentences' }}, one by one, in the order of your list. Reply in English, like a real chat.
-          </div>
+          <div v-if="m.kind === 'note'" class="pillnote">{{ m.text }}</div>
 
           <div v-else-if="m.kind === 'resume'" class="bubble">
-            Welcome back! You stopped at sentence <b>{{ m.pos + 1 }}</b> of {{ n }}.
+            Continue from <b>{{ m.pos + 1 }}</b> of {{ n }}?
             <div class="choices">
               <button class="btn primary" @click="resume(m.pos)">Continue</button>
               <button class="btn" @click="restart">Start over</button>
             </div>
           </div>
 
-          <div v-else-if="m.kind === 'note'" class="pillnote">{{ m.text }}</div>
-
-          <div v-else-if="m.kind === 'prompt'" class="bubble ask">
-            <span class="tag">Sentence {{ m.n }} of {{ n }} · translate to English</span>
-            <span class="vi" lang="vi">{{ m.sentence.vi }}</span>
-          </div>
-
-          <div v-else-if="m.kind === 'user'" class="bubble" :class="{ muted: m.muted }">{{ m.text }}</div>
+          <div v-else-if="m.kind === 'prompt'" class="bubble ask" lang="vi">{{ m.sentence.vi }}</div>
 
           <div v-else-if="m.kind === 'typing'" class="bubble dots" aria-label="Typing"><i /><i /><i /></div>
 
-          <div v-else-if="m.kind === 'reply'" class="bubble reply-b">
-            <ChatReply :result="m.result" :praise="m.praise" :sentence="m.sentence" :uid="m.id" />
+          <div v-else-if="m.kind === 'user'" class="col">
+            <div class="bubble" :class="{ muted: m.muted }">{{ m.text }}</div>
+            <div v-if="m.pending" class="bubble dots wait" aria-label="Checking"><i /><i /><i /></div>
+            <div v-else-if="m.result" class="fbcard"><ChatFeedback :answer="m.text" :result="m.result" :uid="m.id" /></div>
           </div>
 
           <div v-else-if="m.kind === 'summary'" class="bubble sum">
-            <b class="sum-t">Conversation complete! 🎊</b>
-            <p class="sum-p">{{ m.praise }}</p>
+            <b class="sum-t">Done 🎉</b>
             <div class="sum-n">
               <span><b class="g">{{ m.perfect }}</b>rất tự nhiên</span>
               <span><b>{{ m.good }}</b>cần tự nhiên hơn</span>
@@ -281,9 +248,8 @@ onBeforeUnmount(() => {
     </main>
 
     <footer v-if="mode !== 'done'" ref="bar" class="composer" :style="{ bottom: inset + 'px', paddingBottom: inset ? '10px' : 'calc(10px + env(safe-area-inset-bottom))' }">
-      <div v-if="mode === 'answer' || mode === 'next'" class="quick">
-        <button v-if="mode === 'answer'" class="qbtn" @click="peekAnswer">👀 Show answer</button>
-        <button v-else class="qbtn primary" @click="next">Next sentence <AppIcon name="chevron-left" :size="16" class="flip" /></button>
+      <div v-if="mode === 'answer'" class="quick">
+        <button class="qbtn" @click="peekAnswer">👀 Show answer</button>
       </div>
       <div class="input">
         <textarea
@@ -309,28 +275,31 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .cnav { flex-wrap: wrap; row-gap: 8px; padding-bottom: 0; }
+.cnav .title { text-align: left; }
+.count { font-size: .85rem; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
 .prog { flex: 0 0 100%; height: 3px; margin: 0 -16px; background: color-mix(in srgb, var(--accent) 14%, transparent); }
 .prog i { display: block; height: 100%; background: var(--accent); transition: width .4s ease; border-radius: 0 3px 3px 0; }
 
-.thread { padding-top: 12px; }
+.thread { padding-top: 14px; }
 .msgs { display: flex; flex-direction: column; gap: 10px; }
-.m { display: flex; align-items: flex-end; gap: 8px; width: 100%; }
-.m.mine { flex-direction: row-reverse; }
+.m { display: flex; width: 100%; }
+.m.theirs { justify-content: flex-start; }
+.m.mine { justify-content: flex-end; }
 .m.center { justify-content: center; }
-.avatar { flex: none; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-size: 1rem; background: var(--soft); margin-bottom: 2px; }
 
-.bubble { max-width: min(86%, 440px); padding: 10px 14px; border-radius: 20px; line-height: 1.4; word-break: break-word; }
+.bubble { max-width: min(86%, 440px); padding: 10px 14px; border-radius: 20px; line-height: 1.4; overflow-wrap: anywhere; }
 .theirs .bubble { background: var(--card); border: 1px solid var(--line); border-bottom-left-radius: 6px; box-shadow: var(--shadow); }
-.mine .bubble { background: var(--accent); color: #fff; border-bottom-right-radius: 6px; max-width: min(82%, 420px); box-shadow: 0 4px 12px color-mix(in srgb, var(--accent) 30%, transparent); }
-.mine .bubble.muted { background: var(--soft); color: var(--muted); box-shadow: none; font-style: italic; }
-.ask { display: flex; flex-direction: column; gap: 4px; }
-.tag { font-size: .72rem; color: var(--muted); font-weight: 650; }
-.vi { font-size: 1.12rem; font-weight: 700; line-height: 1.35; }
-.reply-b { width: min(92%, 460px); max-width: 100%; }
-.bubble.reply-b { padding: 12px; }
+.ask { font-size: 1.12rem; font-weight: 700; line-height: 1.35; }
+
+/* right side: your answer, with the correction card right below it */
+.col { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; max-width: min(90%, 460px); }
+.col .bubble { max-width: 100%; background: var(--accent); color: #fff; border-bottom-right-radius: 6px; box-shadow: 0 4px 12px color-mix(in srgb, var(--accent) 30%, transparent); }
+.col .bubble.muted { background: var(--soft); color: var(--muted); box-shadow: none; font-style: italic; }
+.col .bubble.wait { background: var(--card); border: 1px solid var(--line); box-shadow: none; border-top-right-radius: 6px; border-bottom-right-radius: 20px; }
+.fbcard { align-self: stretch; padding: 12px 12px 12px 14px; border-radius: 18px; border-top-right-radius: 6px; background: var(--card); border: 1px solid var(--line); box-shadow: var(--shadow); }
 .pillnote { font-size: .78rem; color: var(--muted); background: var(--soft); padding: 5px 12px; border-radius: 99px; }
 
-.dots { display: flex; gap: 5px; align-items: center; padding: 14px 16px; }
+.dots { display: flex; gap: 5px; align-items: center; padding: 14px 16px; width: fit-content; }
 .dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); opacity: .45; animation: bounce 1s ease-in-out infinite; }
 .dots i:nth-child(2) { animation-delay: .15s; }
 .dots i:nth-child(3) { animation-delay: .3s; }
@@ -338,10 +307,9 @@ onBeforeUnmount(() => {
 
 .choices { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
 .choices .btn { min-height: 44px; padding: 0 16px; text-decoration: none; }
-.sum { display: flex; flex-direction: column; gap: 6px; width: min(92%, 460px); }
+.sum { display: flex; flex-direction: column; gap: 8px; width: min(92%, 440px); }
 .sum-t { font-size: 1.1rem; }
-.sum-p { margin: 0; font-weight: 650; text-wrap: balance; }
-.sum-n { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 4px; }
+.sum-n { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
 .sum-n span { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px; border-radius: 12px; background: var(--soft); font-size: .72rem; color: var(--muted); text-align: center; line-height: 1.15; }
 .sum-n b { font-size: 1.5rem; color: var(--ink); line-height: 1.1; }
 .sum-n b.g { color: var(--good); }
@@ -355,8 +323,6 @@ onBeforeUnmount(() => {
 .composer > * { max-width: 536px; margin-left: auto; margin-right: auto; }
 .quick { display: flex; gap: 8px; margin-bottom: 8px; }
 .qbtn { appearance: none; border: 1px solid var(--line); background: var(--card); color: var(--ink); font: inherit; font-weight: 650; font-size: .9rem; min-height: 44px; padding: 0 14px; border-radius: 99px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
-.qbtn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-.flip { transform: rotate(180deg); }
 .input { display: flex; align-items: flex-end; gap: 8px; }
 .input textarea { flex: 1; min-height: 44px; max-height: 132px; padding: 11px 14px; border-radius: 22px; line-height: 1.35; overflow-y: auto; }
 .input textarea:disabled { opacity: .6; }
