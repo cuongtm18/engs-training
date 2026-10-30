@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // Vuốt sang trái để hiện nút hành động (kiểu iOS).
-const props = withDefaults(defineProps<{ label?: string; disabled?: boolean }>(), { label: 'Delete' })
+const props = withDefaults(defineProps<{ label?: string; disabled?: boolean; frozen?: boolean }>(), { label: 'Delete', frozen: false })
 const emit = defineEmits<{ action: [] }>()
 
 const W = 92
@@ -12,7 +12,7 @@ let base = 0
 let locked: 'h' | 'v' | null = null
 
 function onStart(e: TouchEvent) {
-  if (props.disabled) return
+  if (props.disabled || props.frozen) return
   startX = e.touches[0]!.clientX
   startY = e.touches[0]!.clientY
   base = x.value
@@ -20,7 +20,7 @@ function onStart(e: TouchEvent) {
   animate.value = false
 }
 function onMove(e: TouchEvent) {
-  if (props.disabled) return
+  if (props.disabled || props.frozen) return
   const dx = e.touches[0]!.clientX - startX
   const dy = e.touches[0]!.clientY - startY
   if (!locked) locked = Math.abs(dx) > Math.abs(dy) + 4 ? 'h' : Math.abs(dy) > 8 ? 'v' : null

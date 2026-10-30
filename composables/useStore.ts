@@ -15,6 +15,8 @@ interface Persisted {
   hiddenTopics: string[]
   /** Chat practice: index of the next sentence to ask, per topic */
   chatPos: Record<string, number>
+  /** Custom sentence order per topic: sentence ids from first to last */
+  sentenceOrder: Record<string, string[]>
 }
 
 const defaults = (): Persisted => ({
@@ -26,6 +28,7 @@ const defaults = (): Persisted => ({
   topicOverrides: {},
   hiddenTopics: [],
   chatPos: {},
+  sentenceOrder: {},
   settings: { accessCode: '', sessionSize: 10, dailyNew: 10 },
 })
 
@@ -49,6 +52,7 @@ function load(): Persisted {
       topicOverrides: p.topicOverrides ?? {},
       hiddenTopics: p.hiddenTopics ?? [],
       chatPos: p.chatPos ?? {},
+      sentenceOrder: p.sentenceOrder ?? {},
       settings: { ...base.settings, ...(p.settings ?? {}) },
     }
   } catch {
@@ -198,6 +202,22 @@ export function useStore() {
     save()
   }
 
+  /** Save a custom order for a topic (null = back to the default order). Returns an undo function. */
+  function setOrder(topicId: string, ids: string[] | null): () => void {
+    const prev = state.value.sentenceOrder[topicId]
+    const prevPos = state.value.chatPos[topicId]
+    if (ids?.length) state.value.sentenceOrder[topicId] = [...ids]
+    else delete state.value.sentenceOrder[topicId]
+    delete state.value.chatPos[topicId] // saved chat position no longer points at the same sentence
+    save()
+    return () => {
+      if (prev) state.value.sentenceOrder[topicId] = prev
+      else delete state.value.sentenceOrder[topicId]
+      if (prevPos) state.value.chatPos[topicId] = prevPos
+      save()
+    }
+  }
+
   function setChatPos(topicId: string, pos: number) {
     if (pos > 0) state.value.chatPos[topicId] = pos
     else delete state.value.chatPos[topicId]
@@ -223,17 +243,17 @@ export function useStore() {
   }
 
   function exportJson() {
-    return JSON.stringify({ cards: state.value.cards, days: state.value.days, custom: state.value.custom, topics: state.value.topics, topicOverrides: state.value.topicOverrides, hiddenTopics: state.value.hiddenTopics, chatPos: state.value.chatPos, settings: state.value.settings })
+    return JSON.stringify({ cards: state.value.cards, days: state.value.days, custom: state.value.custom, topics: state.value.topics, topicOverrides: state.value.topicOverrides, hiddenTopics: state.value.hiddenTopics, chatPos: state.value.chatPos, sentenceOrder: state.value.sentenceOrder, settings: state.value.settings })
   }
 
   function importJson(raw: string) {
     const snap = snapshot()
     const p = JSON.parse(raw) as Partial<Persisted>
     if (typeof p !== 'object' || !p) throw new Error('invalid')
-    state.value = { ...defaults(), cards: p.cards ?? {}, days: p.days ?? {}, custom: p.custom ?? [], topics: p.topics ?? [], topicOverrides: p.topicOverrides ?? {}, hiddenTopics: p.hiddenTopics ?? [], chatPos: p.chatPos ?? {}, settings: { ...defaults().settings, ...(p.settings ?? {}) } }
+    state.value = { ...defaults(), cards: p.cards ?? {}, days: p.days ?? {}, custom: p.custom ?? [], topics: p.topics ?? [], topicOverrides: p.topicOverrides ?? {}, hiddenTopics: p.hiddenTopics ?? [], chatPos: p.chatPos ?? {}, sentenceOrder: p.sentenceOrder ?? {}, settings: { ...defaults().settings, ...(p.settings ?? {}) } }
     save()
     return () => restoreSnapshot(snap)
   }
 
-  return { state, grade, today, streak, learned, addSentences, removeSentence, removeSentences, addTopic, updateTopic, removeTopic, hideTopic, unhideTopic, setChatPos, setSettings, reset, save, exportJson, importJson }
+  return { state, grade, today, streak, learned, addSentences, removeSentence, removeSentences, addTopic, updateTopic, removeTopic, hideTopic, unhideTopic, setOrder, setChatPos, setSettings, reset, save, exportJson, importJson }
 }
