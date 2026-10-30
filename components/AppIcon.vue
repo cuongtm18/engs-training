@@ -6,6 +6,8 @@ const PATHS = {
   plus: 'M12 5v14M5 12h14',
   minus: 'M5 12h14',
   check: 'M5 13l4 4L19 7',
+  chat: 'M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z',
+  send: 'M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z',
   lock: 'M7 11V8a5 5 0 0110 0v3M6 11h12a1 1 0 011 1v8a1 1 0 01-1 1H6a1 1 0 01-1-1v-8a1 1 0 011-1z',
   x: 'M18 6L6 18M6 6l12 12',
   'chevron-left': 'M15 18l-6-6 6-6',

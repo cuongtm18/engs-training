@@ -3,7 +3,7 @@ import type { CheckResult, Sentence } from '~/utils/types'
 
 const route = useRoute()
 const store = useStore()
-const api = useApi()
+const checker = useAnswerCheck()
 const undo = useUndo()
 const { all } = useSentences()
 const topics = useTopics()
@@ -68,46 +68,16 @@ function beginCard() {
   nextTick(() => input.value?.focus())
 }
 
-function offlineResult(s: Sentence, text: string, reason: string): CheckResult {
-  const ratio = overlapRatio(text, s)
-  const ok = ratio >= 0.7
-  return {
-    structureOk: ok,
-    naturalness: ok ? Math.round(ratio * 100) : 0,
-    natural: s.en,
-    explanation: `${reason} App chỉ ước lượng bằng cách so với câu mẫu nên điểm chỉ mang tính tham khảo.`,
-    engine: 'offline',
-  }
-}
-
 async function submit() {
   const s = current.value
   const text = answer.value.trim()
   if (!s || !text || phase.value !== 'answer') return
-
-  if (matchesAny(text, s)) {
-    finish({ structureOk: true, naturalness: 100, natural: text, explanation: 'Chuẩn rồi! Câu này đúng và nghe rất tự nhiên.', engine: 'local' })
-    return
-  }
-
   phase.value = 'checking'
-  const ck = hashKey('v3', s.id, text)
-  const cached = store.state.value.cache[ck]
-  if (cached) return finish(cached)
-
-  try {
-    const res = await api.check(s, text)
-    store.state.value.cache[ck] = res
-    finish(res)
-  } catch (e) {
-    finish(offlineResult(s, text, errorDetail(e)))
-  }
+  finish(await checker.check(s, text))
 }
 
 function finish(res: CheckResult, opts: { peek?: boolean } = {}) {
   const s = current.value!
-  // Guard (also covers results cached by older versions): the natural version must be English.
-  if (hasVietnamese(res.natural)) res = { ...res, natural: s.en }
   result.value = res
   phase.value = 'result'
   const v = verdictOf(res)
@@ -128,7 +98,7 @@ function finish(res: CheckResult, opts: { peek?: boolean } = {}) {
 function reveal() {
   const s = current.value
   if (!s || phase.value !== 'answer') return
-  finish({ structureOk: false, naturalness: 0, natural: s.en, explanation: 'Bạn đã xem đáp án. Câu này sẽ quay lại sớm để ôn.', engine: 'local' }, { peek: true })
+  finish(checker.peek(s), { peek: true })
 }
 
 function next() {

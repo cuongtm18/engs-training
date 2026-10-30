@@ -21,6 +21,8 @@ const editOpen = ref(false)
 function onAdded(added: Sentence[]) {
   const ids = added.map((s) => s.id)
   undo.push({ message: `${added.length} ${added.length === 1 ? 'sentence' : 'sentences'} added`, undo: () => store.removeSentences(ids) })
+  // new sentences are appended to the end of the list: bring them into view
+  nextTick(() => document.getElementById(`s-${ids[0]}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }))
 }
 
 // No confirm dialog: swiping and tapping Delete is already two steps, and the toast offers Undo.
@@ -52,10 +54,12 @@ onBeforeUnmount(() => stopSpeaking())
       </div>
     </section>
 
-    <div class="row actions">
-      <NuxtLink v-if="list.length" :to="{ path: '/practice', query: { t: topic.id } }" class="btn primary grow"><AppIcon name="edit" :size="18" /> Practice</NuxtLink>
-      <button class="btn grow" @click="addOpen = true"><AppIcon name="plus" :size="18" /> Add sentences</button>
+    <div v-if="list.length" class="row actions">
+      <NuxtLink :to="{ path: '/chat', query: { t: topic.id } }" class="btn primary grow"><AppIcon name="chat" :size="18" /> Chat practice</NuxtLink>
+      <NuxtLink :to="{ path: '/practice', query: { t: topic.id } }" class="btn grow"><AppIcon name="edit" :size="18" /> Quick practice</NuxtLink>
     </div>
+    <p v-if="list.length" class="muted small modes">Chat goes through your list in order, like a conversation. Quick practice shuffles single cards.</p>
+    <button class="btn block addbtn" @click="addOpen = true"><AppIcon name="plus" :size="18" /> Add sentences</button>
 
     <button v-if="list.length" class="row bar" role="switch" :aria-checked="hideEn" @click="hideEn = !hideEn">
       <span class="grow">Hide English</span>
@@ -70,7 +74,7 @@ onBeforeUnmount(() => stopSpeaking())
     </div>
 
     <section class="list">
-      <SwipeRow v-for="s in list" :key="s.id" :disabled="!s.custom" @action="remove(s)">
+      <SwipeRow v-for="s in list" :id="`s-${s.id}`" :key="s.id" :disabled="!s.custom" @action="remove(s)">
         <article class="card item">
           <div class="row">
             <button v-if="hideEn && !revealed[s.id]" class="peek grow" @click="revealed[s.id] = true">Tap to show the English</button>
@@ -101,7 +105,9 @@ onBeforeUnmount(() => stopSpeaking())
 <style scoped>
 .hero { display: flex; align-items: center; gap: 14px; padding: 16px; margin-bottom: 12px; border-radius: 22px; background: color-mix(in srgb, var(--c) 14%, var(--card)); border: 1px solid color-mix(in srgb, var(--c) 32%, var(--line)); }
 .hero .em { font-size: 2.4rem; }
-.actions { margin-bottom: 12px; }
+.actions { margin-bottom: 8px; }
+.modes { margin: 0 4px 10px; text-align: center; }
+.addbtn { margin-bottom: 12px; }
 .actions .btn { flex: 1 1 0; padding: 0 10px; white-space: nowrap; font-size: .95rem; }
 .bar { width: 100%; min-height: 48px; padding: 0 6px; margin-bottom: 6px; background: none; border: 0; font: inherit; color: var(--ink); text-align: left; cursor: pointer; }
 .switch { display: block; flex: none; width: 51px; height: 31px; border-radius: 99px; background: var(--line); position: relative; cursor: pointer; transition: background .2s; padding: 0; }

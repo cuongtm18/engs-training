@@ -13,6 +13,8 @@ interface Persisted {
   topics: Topic[]
   topicOverrides: Record<string, Partial<Pick<Topic, 'label' | 'emoji' | 'color' | 'icon'>>>
   hiddenTopics: string[]
+  /** Chat practice: index of the next sentence to ask, per topic */
+  chatPos: Record<string, number>
 }
 
 const defaults = (): Persisted => ({
@@ -23,6 +25,7 @@ const defaults = (): Persisted => ({
   topics: [],
   topicOverrides: {},
   hiddenTopics: [],
+  chatPos: {},
   settings: { accessCode: '', sessionSize: 10, dailyNew: 10 },
 })
 
@@ -45,6 +48,7 @@ function load(): Persisted {
       topics: p.topics ?? [],
       topicOverrides: p.topicOverrides ?? {},
       hiddenTopics: p.hiddenTopics ?? [],
+      chatPos: p.chatPos ?? {},
       settings: { ...base.settings, ...(p.settings ?? {}) },
     }
   } catch {
@@ -102,7 +106,8 @@ export function useStore() {
   function addSentences(items: Omit<Sentence, 'id' | 'custom'>[]) {
     const stamp = Date.now().toString(36)
     const added = items.map((s, i): Sentence => ({ ...s, id: `u-${stamp}${i.toString(36)}${Math.random().toString(36).slice(2, 5)}`, custom: true }))
-    state.value.custom.unshift(...added)
+    // Appended, so the list keeps the order you pasted it in (chat practice follows that order)
+    state.value.custom.push(...added)
     save()
     return added
   }
@@ -151,7 +156,7 @@ export function useStore() {
     return () => {
       if (!topic || state.value.topics.some((t) => t.id === id)) return
       state.value.topics.splice(Math.min(index, state.value.topics.length), 0, topic)
-      state.value.custom.unshift(...sentences)
+      state.value.custom.push(...sentences)
       Object.assign(state.value.cards, cards)
       save()
     }
@@ -193,6 +198,12 @@ export function useStore() {
     save()
   }
 
+  function setChatPos(topicId: string, pos: number) {
+    if (pos > 0) state.value.chatPos[topicId] = pos
+    else delete state.value.chatPos[topicId]
+    save()
+  }
+
   function setSettings(patch: Partial<Settings>) {
     Object.assign(state.value.settings, patch)
     save()
@@ -212,17 +223,17 @@ export function useStore() {
   }
 
   function exportJson() {
-    return JSON.stringify({ cards: state.value.cards, days: state.value.days, custom: state.value.custom, topics: state.value.topics, topicOverrides: state.value.topicOverrides, hiddenTopics: state.value.hiddenTopics, settings: state.value.settings })
+    return JSON.stringify({ cards: state.value.cards, days: state.value.days, custom: state.value.custom, topics: state.value.topics, topicOverrides: state.value.topicOverrides, hiddenTopics: state.value.hiddenTopics, chatPos: state.value.chatPos, settings: state.value.settings })
   }
 
   function importJson(raw: string) {
     const snap = snapshot()
     const p = JSON.parse(raw) as Partial<Persisted>
     if (typeof p !== 'object' || !p) throw new Error('invalid')
-    state.value = { ...defaults(), cards: p.cards ?? {}, days: p.days ?? {}, custom: p.custom ?? [], topics: p.topics ?? [], topicOverrides: p.topicOverrides ?? {}, hiddenTopics: p.hiddenTopics ?? [], settings: { ...defaults().settings, ...(p.settings ?? {}) } }
+    state.value = { ...defaults(), cards: p.cards ?? {}, days: p.days ?? {}, custom: p.custom ?? [], topics: p.topics ?? [], topicOverrides: p.topicOverrides ?? {}, hiddenTopics: p.hiddenTopics ?? [], chatPos: p.chatPos ?? {}, settings: { ...defaults().settings, ...(p.settings ?? {}) } }
     save()
     return () => restoreSnapshot(snap)
   }
 
-  return { state, grade, today, streak, learned, addSentences, removeSentence, removeSentences, addTopic, updateTopic, removeTopic, hideTopic, unhideTopic, setSettings, reset, save, exportJson, importJson }
+  return { state, grade, today, streak, learned, addSentences, removeSentence, removeSentences, addTopic, updateTopic, removeTopic, hideTopic, unhideTopic, setChatPos, setSettings, reset, save, exportJson, importJson }
 }
