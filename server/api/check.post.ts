@@ -1,4 +1,6 @@
 import type { CheckResult } from '~/utils/types'
+// Nitro only auto-imports server/utils; the client utils/ folder must be imported explicitly.
+import { hasVietnamese } from '../../utils/text'
 
 interface Body {
   vi?: string
