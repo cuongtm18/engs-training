@@ -17,17 +17,19 @@ const rows = computed(() =>
 )
 const totalDue = computed(() => rows.value.reduce((n, r) => n + r.due, 0))
 
-// --- grid / list view (remembered on this device) ---
+// --- grid / list view: defaults to the list; your choice lasts until the app is closed ---
 const VIEW_KEY = 'engs.topicsView'
-const view = useState<'grid' | 'list'>('topics-view', () => 'grid')
-onMounted(() => {
+const readView = (): 'grid' | 'list' => {
   try {
-    if (localStorage.getItem(VIEW_KEY) === 'list') view.value = 'list'
-  } catch { /* ignore */ }
-})
+    return sessionStorage.getItem(VIEW_KEY) === 'grid' ? 'grid' : 'list'
+  } catch {
+    return 'list'
+  }
+}
+const view = useState<'grid' | 'list'>('topics-view', readView)
 function setView(v: 'grid' | 'list') {
   view.value = v
-  try { localStorage.setItem(VIEW_KEY, v) } catch { /* ignore */ }
+  try { sessionStorage.setItem(VIEW_KEY, v) } catch { /* ignore */ }
 }
 
 // --- edit mode + topic sheet ---
