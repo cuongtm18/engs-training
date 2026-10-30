@@ -178,7 +178,7 @@ function open(t: Topic) {
 .plus { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; color: var(--accent); background: var(--soft); }
 
 .seg { display: flex; padding: 3px; margin-right: 6px; border-radius: 11px; background: var(--soft); }
-.seg button { appearance: none; border: 0; width: 38px; height: 34px; border-radius: 8px; background: none; color: var(--muted); display: grid; place-items: center; cursor: pointer; padding: 0; }
+.seg button { appearance: none; border: 0; width: 40px; height: 40px; min-height: 40px; border-radius: 8px; background: none; color: var(--muted); display: grid; place-items: center; cursor: pointer; padding: 0; }
 .seg button.on { background: var(--card); color: var(--ink); box-shadow: 0 1px 3px rgba(0, 0, 0, .15); }
 
 /* List: compact single-column rows — icon, name + count on the left, due badge / ring / play on the right. */

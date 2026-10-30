@@ -132,6 +132,7 @@ function reveal() {
 }
 
 function next() {
+  stopSpeaking() // a new sentence should never talk over the old one
   if (index.value + 1 >= queue.value.length) {
     donePhrase.value = donePraise(tally.perfect + tally.good, tally.perfect + tally.good + tally.wrong)
     phase.value = 'done'
@@ -139,15 +140,6 @@ function next() {
   }
   index.value++
   beginCard()
-}
-
-function speak(text: string) {
-  if (!('speechSynthesis' in window)) return
-  speechSynthesis.cancel()
-  const u = new SpeechSynthesisUtterance(text)
-  u.lang = 'en-US'
-  u.rate = 0.95
-  speechSynthesis.speak(u)
 }
 
 function onKey(e: KeyboardEvent) {
@@ -169,7 +161,7 @@ onMounted(() => {
 })
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', onKey)
-  if (import.meta.client && 'speechSynthesis' in window) speechSynthesis.cancel()
+  stopSpeaking()
 })
 
 const levelText = (n: number) => (n >= 90 ? 'Như người bản xứ' : n >= 70 ? 'Khá tự nhiên' : n >= 40 ? 'Hơi gượng' : 'Cần chỉnh nhiều')
@@ -238,7 +230,7 @@ const levelText = (n: number) => (n >= 90 ? 'Như người bản xứ' : n >= 70
         <div class="muted small">Cách nói tự nhiên</div>
         <div class="row">
           <b class="grow">{{ result.natural }}</b>
-          <button class="btn ghost listen" aria-label="Listen" @click="speak(result.natural)"><AppIcon name="volume" :size="20" /></button>
+          <SpeakButton :id="`natural-${current.id}`" :text="result.natural" />
         </div>
       </div>
 
@@ -303,7 +295,6 @@ const levelText = (n: number) => (n >= 90 ? 'Như người bản xứ' : n >= 70
 .meter i.mid { background: var(--warn); }
 .meter i.lo { background: var(--bad); }
 .natural b { font-size: 1.1rem; }
-.listen { min-width: 48px; padding: 0; }
 .small { font-size: .8rem; }
 .expl, .note { margin: 0; }
 .tag { font-size: .75rem; padding: 2px 8px; border-radius: 99px; background: var(--soft); }

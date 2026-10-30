@@ -29,22 +29,11 @@ function remove(s: Sentence) {
   undo.push({ message: 'Sentence deleted', undo: restore })
 }
 
-function speak(text: string) {
-  if (!('speechSynthesis' in window)) return
-  speechSynthesis.cancel()
-  const u = new SpeechSynthesisUtterance(text)
-  u.lang = 'en-US'
-  u.rate = 0.95
-  speechSynthesis.speak(u)
-}
-
 onMounted(() => {
   // a brand-new or empty topic opens straight on the AI script sheet
   if (topic.value && (route.query.add || !list.value.length)) addOpen.value = true
 })
-onBeforeUnmount(() => {
-  if (import.meta.client && 'speechSynthesis' in window) speechSynthesis.cancel()
-})
+onBeforeUnmount(() => stopSpeaking())
 </script>
 
 <template>
@@ -86,7 +75,7 @@ onBeforeUnmount(() => {
           <div class="row">
             <button v-if="hideEn && !revealed[s.id]" class="peek grow" @click="revealed[s.id] = true">Tap to show the English</button>
             <b v-else class="en grow">{{ s.en }}</b>
-            <button class="icon-btn small-ic" aria-label="Listen" @click="speak(s.en)"><AppIcon name="volume" :size="18" /></button>
+            <SpeakButton :id="s.id" :text="s.en" class="small-ic" />
           </div>
           <div class="vi" lang="vi">{{ s.vi }}</div>
           <template v-if="!hideEn || revealed[s.id]">
@@ -127,7 +116,7 @@ onBeforeUnmount(() => {
 .en { font-size: 1.08rem; line-height: 1.35; }
 .vi { color: var(--muted); }
 .peek { appearance: none; border: 1px dashed var(--line); background: transparent; color: var(--muted); border-radius: 12px; padding: 10px; font: inherit; cursor: pointer; text-align: left; }
-.small-ic { box-shadow: none; flex-shrink: 0; margin: -4px -4px -4px 0; }
+.small-ic { flex-shrink: 0; margin: -4px -4px -4px 0; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .alt { font-size: .85rem; padding: 4px 10px; border-radius: 99px; background: var(--soft); }
 .note { margin: 0; font-size: .92rem; }
