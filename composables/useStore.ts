@@ -1,3 +1,4 @@
+import { buildBackup, parseBackup, type BackupData } from '~/utils/backup'
 import type { CardState, CheckResult, Sentence, Settings, Topic } from '~/utils/types'
 
 const KEY = 'engs.v1'
@@ -242,18 +243,39 @@ export function useStore() {
     return () => restoreSnapshot(snap)
   }
 
-  function exportJson() {
-    return JSON.stringify({ cards: state.value.cards, days: state.value.days, custom: state.value.custom, topics: state.value.topics, topicOverrides: state.value.topicOverrides, hiddenTopics: state.value.hiddenTopics, chatPos: state.value.chatPos, sentenceOrder: state.value.sentenceOrder, settings: state.value.settings })
+  /** Toàn bộ dữ liệu cần sao lưu (không gồm accessCode, là bí mật của riêng thiết bị). */
+  function backupData(): BackupData {
+    const { accessCode: _secret, ...settings } = state.value.settings
+    return {
+      cards: state.value.cards,
+      days: state.value.days,
+      custom: state.value.custom,
+      topics: state.value.topics,
+      topicOverrides: state.value.topicOverrides,
+      hiddenTopics: state.value.hiddenTopics,
+      chatPos: state.value.chatPos,
+      sentenceOrder: state.value.sentenceOrder,
+      settings,
+      cache: state.value.cache,
+    }
   }
 
-  function importJson(raw: string) {
+  const exportJson = () => buildBackup(backupData())
+
+  /** Thay toàn bộ dữ liệu bằng bản sao lưu đã được kiểm tra. Giữ accessCode của thiết bị này. Trả về hàm hoàn tác. */
+  function applyBackup(data: BackupData): () => void {
     const snap = snapshot()
-    const p = JSON.parse(raw) as Partial<Persisted>
-    if (typeof p !== 'object' || !p) throw new Error('invalid')
-    state.value = { ...defaults(), cards: p.cards ?? {}, days: p.days ?? {}, custom: p.custom ?? [], topics: p.topics ?? [], topicOverrides: p.topicOverrides ?? {}, hiddenTopics: p.hiddenTopics ?? [], chatPos: p.chatPos ?? {}, sentenceOrder: p.sentenceOrder ?? {}, settings: { ...defaults().settings, ...(p.settings ?? {}) } }
+    state.value = { ...defaults(), ...data, settings: { ...defaults().settings, ...data.settings, accessCode: state.value.settings.accessCode } }
     save()
     return () => restoreSnapshot(snap)
   }
 
-  return { state, grade, today, streak, learned, addSentences, removeSentence, removeSentences, addTopic, updateTopic, removeTopic, hideTopic, unhideTopic, setOrder, setChatPos, setSettings, reset, save, exportJson, importJson }
+  /** Nhập từ chuỗi JSON (ném lỗi nếu không phải bản sao lưu hợp lệ). */
+  function importJson(raw: string) {
+    const parsed = parseBackup(raw)
+    if (!parsed.ok) throw new Error(parsed.error)
+    return applyBackup(parsed.data)
+  }
+
+  return { state, grade, today, streak, learned, addSentences, removeSentence, removeSentences, addTopic, updateTopic, removeTopic, hideTopic, unhideTopic, setOrder, setChatPos, setSettings, reset, save, backupData, applyBackup, exportJson, importJson }
 }

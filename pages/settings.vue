@@ -12,30 +12,86 @@ function step(key: 'sessionSize' | 'dailyNew', delta: number, min: number, max: 
   haptic(6)
 }
 
-function doExport() {
-  const blob = new Blob([store.exportJson()], { type: 'application/json' })
+// ---- backup & restore ----
+const LAST_KEY = 'engs.lastBackup' // only on this device; deliberately NOT part of the backup file
+const lastBackup = ref<string | null>(null)
+onMounted(() => {
+  try {
+    lastBackup.value = localStorage.getItem(LAST_KEY)
+  } catch { /* ignore */ }
+})
+const fmt = (iso: string) => new Date(iso).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
+const current = computed(() => summarize(store.backupData()))
+const hasData = computed(() => current.value.reviewed > 0 || current.value.ownSentences > 0 || current.value.ownTopics > 0 || current.value.answered > 0)
+const err = ref('')
+const busy = ref(false)
+
+function markBackedUp() {
+  const now = new Date().toISOString()
+  lastBackup.value = now
+  try {
+    localStorage.setItem(LAST_KEY, now)
+  } catch { /* ignore */ }
+}
+
+async function doExport() {
+  err.value = ''
+  const name = `english-reflex-backup-${dayKey()}.json`
+  const json = store.exportJson()
+  const file = new File([json], name, { type: 'application/json' })
+  try {
+    // Installed iPhone app: the share sheet lets you "Save to Files", AirDrop it, mail it to yourself, etc.
+    if (navigator.canShare?.({ files: [file] })) {
+      await navigator.share({ files: [file], title: 'English Reflex backup' })
+      markBackedUp()
+      undo.push({ message: 'Backup ready' })
+      return
+    }
+  } catch (e) {
+    if ((e as DOMException)?.name === 'AbortError') return // you closed the share sheet
+    /* any other share error: fall back to a normal download */
+  }
   const a = document.createElement('a')
-  a.href = URL.createObjectURL(blob)
-  a.download = `english-reflex-progress-${dayKey()}.json`
+  a.href = URL.createObjectURL(new Blob([json], { type: 'application/json' }))
+  a.download = name
+  document.body.appendChild(a)
   a.click()
-  URL.revokeObjectURL(a.href)
+  a.remove()
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000)
+  markBackedUp()
+  undo.push({ message: `Backup downloaded (${name})` })
 }
 
 async function doImport(e: Event) {
-  const f = (e.target as HTMLInputElement).files?.[0]
+  const input = e.target as HTMLInputElement
+  const f = input.files?.[0]
+  input.value = '' // allow choosing the same file again
   if (!f) return
+  err.value = ''
+  busy.value = true
   try {
-    const restore = store.importJson(await f.text())
-    undo.push({ message: 'Progress imported', undo: restore, duration: 10000 })
-    msg.value = ''
-  } catch {
-    msg.value = 'That file is not valid.'
+    if (f.size > 25_000_000) throw new Error('This file is too large to be a backup.')
+    const parsed = parseBackup(await f.text())
+    if (!parsed.ok) {
+      err.value = parsed.error
+      return
+    }
+    const warn: string[] = []
+    if (parsed.dropped) warn.push(`${parsed.dropped} damaged ${parsed.dropped === 1 ? 'item was' : 'items were'} skipped.`)
+    if (hasData.value && current.value.answered > parsed.summary.answered) warn.push(`Heads up: this device has more progress (${current.value.answered} answers) than the backup (${parsed.summary.answered}).`)
+    const ok = await confirm.ask({
+      title: 'Replace everything with this backup?',
+      message: [describeBackup(parsed.summary), ...warn, 'Your current data will be replaced. You can undo for 10 seconds.'].join(' '),
+      confirmText: 'Replace',
+    })
+    if (!ok) return
+    const restore = store.applyBackup(parsed.data)
+    undo.push({ message: 'Backup restored', undo: restore, duration: 10000 })
+  } catch (error) {
+    err.value = (error as Error).message || 'That file could not be read.'
+  } finally {
+    busy.value = false
   }
-}
-
-function restoreTopic(id: string, label: string) {
-  const hideAgain = store.unhideTopic(id)
-  undo.push({ message: `Topic “${label}” restored`, undo: hideAgain })
 }
 
 async function doReset() {
@@ -91,18 +147,42 @@ async function doReset() {
     </section>
   </template>
 
-  <p class="cap">Data</p>
+  <p class="cap">Backup &amp; restore</p>
   <section class="group">
-    <button class="item action" @click="doExport">Export progress</button>
-    <button class="item action" @click="fileInput?.click()">Import progress</button>
+    <button class="item action stack" @click="doExport">
+      <span>Export backup</span>
+      <span class="sub">Saves everything to a file you keep</span>
+    </button>
+    <button class="item action stack" :disabled="busy" @click="fileInput?.click()">
+      <span>Import backup</span>
+      <span class="sub">Restore from a file, e.g. on a new device</span>
+    </button>
+  </section>
+  <input ref="fileInput" type="file" accept=".json,application/json" hidden @change="doImport" />
+  <p v-if="err" class="note errmsg" role="alert">{{ err }}</p>
+  <p class="note" :class="{ warnmsg: hasData && !lastBackup }">
+    <template v-if="lastBackup">Last backup: {{ fmt(lastBackup) }}.</template>
+    <template v-else-if="hasData">You have not made a backup on this device yet.</template>
+    <template v-else>Nothing to back up yet.</template>
+  </p>
+  <p class="note">
+    A backup contains your progress and history, your own sentences and topics (with custom icons), edits to the built-in topics, sentence order, chat positions, practice settings and saved AI answers. It does <b>not</b> contain your access code.
+  </p>
+
+  <p class="cap">Danger zone</p>
+  <section class="group">
     <button class="item action danger" @click="doReset">Reset everything</button>
   </section>
-  <input ref="fileInput" type="file" accept="application/json" hidden @change="doImport" />
   <p v-if="msg" class="note">{{ msg }}</p>
-  <p class="note">Progress, topics and sentences are stored only on this device. Use Export and Import to move them to another device.</p>
+  <p class="note">Everything is stored only on this device. To move to another device: Export backup here, then Import backup there.</p>
 </template>
 
 <style scoped>
+.stack { flex-direction: column; align-items: flex-start; gap: 2px; }
+.sub { font-size: .82rem; font-weight: 400; color: var(--muted); }
+.errmsg { color: var(--bad); font-weight: 600; }
+.warnmsg { color: var(--warn); font-weight: 600; }
+.item:disabled { opacity: .5; }
 .head { margin: 8px 0 8px; }
 .cap { margin: 18px 12px 6px; font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
 .group { background: var(--card); border: 1px solid var(--line); border-radius: 20px; overflow: hidden; box-shadow: var(--shadow); }
