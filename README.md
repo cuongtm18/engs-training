@@ -12,6 +12,7 @@ PWA luyện phản xạ dịch **Việt → Anh** qua tình huống hằng ngày
 - 181 câu mẫu trong `data/sentences.json`, câu bạn tự thêm lưu trên máy (chủ đề "Câu của tôi" hoặc bất kỳ chủ đề nào)
 - `/api/check` (chấm), `/api/translate` (dịch danh sách câu tự thêm) và `/api/generate` (AI viết kịch bản cho chủ đề): **Gemini** (free, tự chọn model dùng được) → dự phòng **Cloudflare Workers AI**; nếu không có AI thì app ước lượng offline
 - Hoàn tác (Undo) cho mọi thao tác xóa/sửa: toast hiện ở phía trên màn hình với nút Undo và nút đóng, tự tắt sau 7-10 giây (chạm giữ để dừng đếm), nút Undo chỉ bấm được sau ~0,35 giây để tránh bấm nhầm. Xóa chữ trong ô nhập (kể cả giữ phím xóa trên bàn phím) cũng được hoàn tác, gom thành một lần nhờ debounce. Ctrl/Cmd+Z ngoài ô nhập = hoàn tác thao tác gần nhất
+- **Bàn phím ảo (iOS Safari)**: `plugins/viewport.client.ts` công bố vùng nhìn thấy thật thành biến CSS (`--vv-top`, `--vv-h`, `--kb`, `--kb-open`). Thanh tiêu đề luôn nằm đầu vùng nhìn thấy, ô chat nằm sát trên bàn phím, bảng trượt (Add sentences, Edit topic…) co lại vừa vùng không bị bàn phím che. Dùng `documentElement.clientHeight` chứ không dùng `window.innerHeight` (trên iOS nó lớn hơn đúng bằng thanh công cụ Safari)
 - Ôn tập ngắt quãng kiểu Leitner, streak; tiến độ lưu trên máy (localStorage), có xuất/nhập JSON
 
 ## Chạy local

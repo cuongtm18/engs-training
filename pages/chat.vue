@@ -168,21 +168,15 @@ function resizeComposer() {
 const canType = computed(() => mode.value === 'answer')
 const placeholder = computed(() => (mode.value === 'answer' ? 'Type your answer in English…' : mode.value === 'intro' ? 'Choose an option above…' : ' '))
 
-// The composer is fixed to the bottom of the *visible* area, so it stays above the iOS keyboard.
-const inset = ref(0)
+// The composer is pinned to the bottom of the *visible* area through CSS variables set by plugins/viewport.client.ts
+// (--kb = height of the keyboard covering the layout viewport). When the viewport changes, keep the newest message in view.
 const barH = ref(96)
-let vv: VisualViewport | null = null
 let ro: ResizeObserver | undefined
-function syncViewport() {
-  inset.value = vv ? Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop)) : 0
-  scrollDown()
-}
+const onViewport = () => scrollDown()
 
 onMounted(() => {
   if (!topic.value || !list.value.length) return router.replace(topic.value ? { path: '/learn', query: { t: topic.value.id } } : '/')
-  vv = window.visualViewport
-  vv?.addEventListener('resize', syncViewport)
-  vv?.addEventListener('scroll', syncViewport)
+  window.visualViewport?.addEventListener('resize', onViewport)
   if (bar.value && 'ResizeObserver' in window) {
     ro = new ResizeObserver(() => (barH.value = bar.value?.offsetHeight ?? 96))
     ro.observe(bar.value)
@@ -192,8 +186,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   alive = false
   stopSpeaking()
-  vv?.removeEventListener('resize', syncViewport)
-  vv?.removeEventListener('scroll', syncViewport)
+  window.visualViewport?.removeEventListener('resize', onViewport)
   ro?.disconnect()
 })
 </script>
@@ -208,7 +201,7 @@ onBeforeUnmount(() => {
       <div class="prog" role="progressbar" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="Math.round(progress)"><i :style="{ width: progress + '%' }" /></div>
     </header>
 
-    <main class="thread" :style="{ paddingBottom: barH + inset + 24 + 'px' }" aria-live="polite">
+    <main class="thread" :style="{ paddingBottom: `calc(${barH}px + var(--kb, 0px) + 24px)` }" aria-live="polite">
       <TransitionGroup name="msg" tag="div" class="msgs">
         <div v-for="m in msgs" :key="m.id" class="m" :class="[m.kind, m.kind === 'user' ? 'mine' : m.kind === 'note' ? 'center' : 'theirs']">
           <div v-if="m.kind === 'note'" class="pillnote">{{ m.text }}</div>
@@ -247,7 +240,7 @@ onBeforeUnmount(() => {
       </TransitionGroup>
     </main>
 
-    <footer v-if="mode !== 'done'" ref="bar" class="composer" :style="{ bottom: inset + 'px', paddingBottom: inset ? '10px' : 'calc(10px + env(safe-area-inset-bottom))' }">
+    <footer v-if="mode !== 'done'" ref="bar" class="composer">
       <div v-if="mode === 'answer'" class="quick">
         <button class="qbtn" @click="peekAnswer">👀 Show answer</button>
       </div>
@@ -319,7 +312,7 @@ onBeforeUnmount(() => {
 .msg-enter-from { opacity: 0; transform: translateY(10px) scale(.98); }
 @media (prefers-reduced-motion: reduce) { .msg-enter-active { transition: none; } .dots i { animation: none; } }
 
-.composer { position: fixed; left: 0; right: 0; z-index: 15; padding: 8px 12px 10px; background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(16px) saturate(1.4); border-top: 1px solid var(--line); }
+.composer { position: fixed; left: 0; right: 0; bottom: var(--kb, 0px); z-index: 15; padding: 8px 12px calc(10px + env(safe-area-inset-bottom) * (1 - var(--kb-open, 0))); background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(16px) saturate(1.4); border-top: 1px solid var(--line); }
 .composer > * { max-width: 536px; margin-left: auto; margin-right: auto; }
 .quick { display: flex; gap: 8px; margin-bottom: 8px; }
 .qbtn { appearance: none; border: 1px solid var(--line); background: var(--card); color: var(--ink); font: inherit; font-weight: 650; font-size: .9rem; min-height: 44px; padding: 0 14px; border-radius: 99px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }

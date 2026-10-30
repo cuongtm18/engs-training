@@ -64,10 +64,10 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.sheet-root { position: fixed; inset: 0; z-index: 50; display: flex; align-items: flex-end; justify-content: center; }
+.sheet-root { position: fixed; left: 0; right: 0; top: var(--vv-top, 0px); height: var(--vv-h, 100%); z-index: 50; display: flex; align-items: flex-end; justify-content: center; }
 .backdrop { position: absolute; inset: 0; background: rgba(20, 12, 4, .45); backdrop-filter: blur(2px); }
-.panel { position: relative; width: 100%; max-width: 560px; max-height: 92dvh; display: flex; flex-direction: column; background: var(--bg); border-radius: 26px 26px 0 0; box-shadow: 0 -10px 40px rgba(0, 0, 0, .25); transition: transform .28s cubic-bezier(.2, .8, .2, 1); }
-.panel.tall { height: 92dvh; }
+.panel { position: relative; width: 100%; max-width: 560px; max-height: calc(var(--vv-h, 100dvh) * .94); display: flex; flex-direction: column; background: var(--bg); border-radius: 26px 26px 0 0; box-shadow: 0 -10px 40px rgba(0, 0, 0, .25); transition: transform .28s cubic-bezier(.2, .8, .2, 1); }
+.panel.tall { height: calc(var(--vv-h, 100dvh) * .94); }
 .grab { padding: 8px 12px 4px; touch-action: none; }
 .grab > i { display: block; width: 38px; height: 5px; border-radius: 9px; background: var(--line); margin: 0 auto 6px; }
 .bar { display: flex; align-items: center; justify-content: space-between; min-height: 44px; }
@@ -76,7 +76,7 @@ onBeforeUnmount(() => {
 .x.ph { visibility: hidden; }
 .body > * { flex: none; }
 .body { overflow-y: auto; padding: 8px 16px 16px; display: flex; flex-direction: column; gap: 12px; overscroll-behavior: contain; }
-.foot { padding: 10px 16px calc(14px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: var(--bg); }
+.foot { padding: 10px 16px calc(14px + env(safe-area-inset-bottom) * (1 - var(--kb-open, 0))); border-top: 1px solid var(--line); background: var(--bg); }
 .sheet-enter-active, .sheet-leave-active { transition: opacity .22s; }
 .sheet-enter-active .panel, .sheet-leave-active .panel { transition: transform .28s cubic-bezier(.2, .8, .2, 1); }
 .sheet-enter-from, .sheet-leave-to { opacity: 0; }

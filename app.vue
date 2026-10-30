@@ -100,7 +100,7 @@ h2 { font-size: 1.05rem; margin: 0 0 8px; }
 .seg.small button { min-height: 40px; padding: 5px 16px; }
 
 /* pushed-screen navigation bar */
-.nav { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 10px; margin: 0 -16px 10px; padding: calc(8px + env(safe-area-inset-top)) 16px 8px; background: color-mix(in srgb, var(--bg) 84%, transparent); backdrop-filter: blur(16px) saturate(1.4); }
+.nav { position: sticky; top: 0; transform: translate3d(0, var(--vv-top, 0px), 0); z-index: 10; display: flex; align-items: center; gap: 10px; margin: 0 -16px 10px; padding: calc(8px + env(safe-area-inset-top)) 16px 8px; background: color-mix(in srgb, var(--bg) 84%, transparent); backdrop-filter: blur(16px) saturate(1.4); }
 .shell:has(.nav) { padding-top: 0; }
 .nav .title { flex: 1; font-size: 1.1rem; font-weight: 750; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
