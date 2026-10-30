@@ -20,8 +20,8 @@ Step 2, naturalness (integer 0-100): would a native speaker actually say it this
 - 90-100: sounds native. 70-89: correct but a bit textbook or stiff. 40-69: understandable but awkward, with wrong collocations or prepositions.
 - If structureOk is false, set naturalness to 0.
 
-natural: the single most natural English sentence for this situation. If the learner's sentence is already good, keep it or change it minimally.
-explanation: write it in VIETNAMESE (the learner is Vietnamese, level A2-B1), at most 2 short, friendly sentences. Keep English words or phrases in English when you quote them. If the structure is wrong, name the specific mistake first. If the structure is fine, say why it is not 100% natural, or give brief praise if it is natural.
+natural: the single most natural ENGLISH sentence for this situation. It must be written in English only, never in Vietnamese, because the learner is translating INTO English. If the learner's sentence is already good, keep it or change it minimally.
+Only the explanation field is in VIETNAMESE (the learner is Vietnamese, level A2-B1), at most 2 short, friendly sentences. Keep English words or phrases in English when you quote them. If the structure is wrong, name the specific mistake first. If the structure is fine, say why it is not 100% natural, or give brief praise if it is natural.
 
 Reply with JSON that matches the schema and nothing else.`
 
@@ -63,5 +63,7 @@ export default defineEventHandler(async (event) => {
   const prompt = `Vietnamese sentence: ${vi}\nReference answer: ${reference}${alts}\nLearner's translation: ${answer}`
 
   const { data, engine } = await aiJson(env, { system: SYSTEM, prompt, schema: SCHEMA, parse })
+  // The model sometimes answers the "natural" field in Vietnamese. It must be English, so fall back to the reference sentence.
+  if (hasVietnamese(data.natural)) data.natural = reference
   return { ...data, engine } satisfies CheckResult
 })

@@ -103,6 +103,8 @@ async function submit() {
 
 function finish(res: CheckResult) {
   const s = current.value!
+  // Guard (also covers results cached by older versions): the natural version must be English.
+  if (hasVietnamese(res.natural)) res = { ...res, natural: s.en }
   result.value = res
   phase.value = 'result'
   const v = verdictOf(res)

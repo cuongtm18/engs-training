@@ -49,6 +49,11 @@ export function hashKey(...parts: string[]): string {
   return (h >>> 0).toString(36)
 }
 
+/** True if the text contains letters that only Vietnamese uses (ă â đ ê ô ơ ư and tone-marked vowels). */
+export function hasVietnamese(s: string): boolean {
+  return /[ăâđêôơưĂÂĐÊÔƠƯ\u1EA0-\u1EF9]/.test(s)
+}
+
 export type Verdict = 'perfect' | 'good' | 'wrong'
 
 /** perfect: đúng cấu trúc và rất tự nhiên; good: đúng cấu trúc; wrong: sai cấu trúc/ý nghĩa. */
