@@ -50,7 +50,7 @@ function clearAnswer() {
   if (!prev) return
   answer.value = ''
   input.value?.focus()
-  if (prev.trim().length >= 3) {
+  if (prev.trim().length >= 8) {
     undo.push({
       message: 'Text cleared',
       undo: () => {
